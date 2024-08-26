@@ -11,6 +11,10 @@ logger = logging.getLogger(__name__)
 # Replace with your actual Telegram bot token
 TELEGRAM_TOKEN = "1746938345:AAENVpvuuGDgeHMNVVJ0q-qzFAmI2gr4SV0"
 
+def get_full_filing_url(relative_url):
+    base_url = "https://www.otcmarkets.com/otcapi"
+    return f"{base_url}{relative_url}"
+
 def convert_timestamp(date_str):
     if date_str == "N/A":
         return "N/A"
@@ -92,6 +96,7 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         public_float = format_number(security.get("publicFloat", "N/A"))
         public_float_date = convert_timestamp(security.get("publicFloatAsOfDate", "N/A"))
+        tier_display_name = security.get("tierDisplayName", "N/A")
 
         company_profile = {
             "phone": parsed_profile.get("phone", "N/A"),
@@ -117,9 +122,17 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         latest_filing_type = parsed_profile.get("latestFilingType", "N/A")
         latest_filing_date = convert_timestamp(parsed_profile.get("latestFilingDate", "N/A"))
+        latest_filing_url = parsed_profile.get("latestFilingUrl", "N/A")
+        latest_filing_url = parsed_profile.get("latestFilingUrl", "N/A")
+        if latest_filing_url and latest_filing_url != "N/A":
+           latest_filing_url = get_full_filing_url(latest_filing_url)
 
         # Extract previous close price only if trade information is available
         previous_close_price = parsed_trade.get("previousClose", "N/A") if parsed_trade else "N/A"
+
+        # Parse additional fields
+        business_desc = parsed_profile.get("businessDesc", "N/A")
+        is_caveat_emptor = parsed_profile.get("isCaveatEmptor", False)  # Default to False if not present
 
         keyboard = [
             [
@@ -130,8 +143,19 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
+         # Determine emoji based on Tier Display Name
+        tier_display_emoji = "🎀" if tier_display_name == "Pink Current Information" else \
+                             "🔺" if tier_display_name == "Pink Limited Information" else ""
+
+        # Determine Caveat Emptor message
+        caveat_emptor_message = ""
+        if is_caveat_emptor:
+                caveat_emptor_message = "*☠️ Warning - Caveat Emptor: True*\n\n"
+                
         response_message = (
             f"*Company Profile for {ticker}:*\n\n"
+            f"{tier_display_emoji} *{tier_display_name}*\n"
+            f"{caveat_emptor_message}"
             f"*💼 Outstanding Shares:* {outstanding_shares} (As of: {outstanding_shares_date})\n"
             f"*🏦 Held at DTC:* {held_at_dtc} (As of: {dtc_shares_date})\n"
             f"*🌍 Public Float:* {public_float} (As of: {public_float_date})\n"
@@ -139,7 +163,9 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             f"*✅ Profile Verified:* {'Yes' if profile_verified else 'No'}\n"
             f"*🗓️ Verification Date:* {profile_verified_date}\n\n"
             f"*📄 Latest Filing Type:* {latest_filing_type}\n"
-            f"*🗓️ Latest Filing Date:* {latest_filing_date}\n\n"
+            f"*🗓️ Latest Filing Date:* {latest_filing_date}\n"
+            f"*📄 Latest Filing:* [View Filing]({latest_filing_url})\n\n"
+            f"*📝 Business Description:* {business_desc}\n"
             f"*📞 Phone:* {company_profile['phone']}\n"
             f"*📧 Email:* {company_profile['email']}\n"
             f"*🏢 Address:* {company_profile['address']['address1']}, {company_profile['address']['address2']}, "
