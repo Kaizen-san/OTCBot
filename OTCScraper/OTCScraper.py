@@ -9,14 +9,28 @@ logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s
 logger = logging.getLogger(__name__)
 
 # Replace with your actual Telegram bot token
-TELEGRAM_TOKEN = "1746938345:AAHnJj5p4xKV0CrcGQc5wqseNHu8X1831IM"
+TELEGRAM_TOKEN = "1746938345:AAENVpvuuGDgeHMNVVJ0q-qzFAmI2gr4SV0"
 
-def convert_timestamp(timestamp):
-    if timestamp == "N/A":
+def convert_timestamp(date_str):
+    if date_str == "N/A":
         return "N/A"
     try:
-        return datetime.utcfromtimestamp(timestamp / 1000).strftime('%Y-%m-%d')
-    except:
+        # Check if the date_str is a timestamp (in milliseconds)
+        if isinstance(date_str, (int, float)):
+            return datetime.utcfromtimestamp(date_str / 1000).strftime('%Y-%m-%d')
+        # Check if the date_str is a date string in format "M/D/YYYY"
+        elif isinstance(date_str, str):
+            try:
+                # Try to parse the date string "M/D/YYYY"
+                return datetime.strptime(date_str, "%m/%d/%Y").strftime('%Y-%m-%d')
+            except ValueError:
+                logger.error("Error parsing date string: %s", date_str)
+                return "Invalid Date"
+        else:
+            logger.error("Timestamp is not a number or a recognizable date string: %s", date_str)
+            return "Invalid Date"
+    except Exception as e:
+        logger.error("Error converting timestamp: %s", e)
         return "Invalid Date"
 
 def format_number(value):
@@ -109,7 +123,8 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         officers = parsed_profile.get("officers", [])
 
         profile_verified = parsed_profile.get("isProfileVerified", False)
-        profile_verified_date = convert_timestamp(parsed_profile.get("profileVerifiedAsOfDate", "N/A"))
+        profile_verified_date_raw = parsed_profile.get("profileVerifiedAsOfDate", "N/A")
+        profile_verified_date = convert_timestamp(profile_verified_date_raw)
 
         latest_filing_type = parsed_profile.get("latestFilingType", "N/A")
         latest_filing_date = convert_timestamp(parsed_profile.get("latestFilingDate", "N/A"))
@@ -119,24 +134,24 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         # Format the response message
         response_message = (
-            f"**Company Profile:**\n"
-            f"Phone: {company_profile['phone']}\n"
-            f"Email: {company_profile['email']}\n"
-            f"Address: {company_profile['address']['address1']}, {company_profile['address']['address2']}, {company_profile['address']['city']}, {company_profile['address']['state']}, {company_profile['address']['zip']}, {company_profile['address']['country']}\n"
-            f"Website: {company_profile['website']}\n"
-            f"Twitter: {company_profile['twitter']}\n"
-            f"LinkedIn: {company_profile['linkedin']}\n"
-            f"Instagram: {company_profile['instagram']}\n\n"
-            f"**Outstanding Shares:** {outstanding_shares} (As Of Date: {outstanding_shares_date})\n"
-            f"**Held at DTC:** {held_at_dtc} (As Of Date: {dtc_shares_date})\n"
-            f"**Public Float:** {public_float} (As Of Date: {public_float_date})\n"
-            f"**Previous Close Price:** ${previous_close_price}\n\n"
-            f"**Officers:**\n"
+            f"*Company Profile:*\n"
+            f"*Phone:* {company_profile['phone']}\n"
+            f"*Email:* {company_profile['email']}\n"
+            f"*Address:* {company_profile['address']['address1']}, {company_profile['address']['address2']}, {company_profile['address']['city']}, {company_profile['address']['state']}, {company_profile['address']['zip']}, {company_profile['address']['country']}\n"
+            f"*Website:* {company_profile['website']}\n"
+            f"*Twitter:* {company_profile['twitter']}\n"
+            f"*LinkedIn:* {company_profile['linkedin']}\n"
+            f"*Instagram:* {company_profile['instagram']}\n\n"
+            f"*Outstanding Shares:* {outstanding_shares} (As Of Date: {outstanding_shares_date})\n"
+            f"*Held at DTC:* {held_at_dtc} (As Of Date: {dtc_shares_date})\n"
+            f"*Public Float:* {public_float} (As Of Date: {public_float_date})\n"
+            f"*Previous Close Price:* ${previous_close_price}\n\n"
+            f"*Officers:*\n"
             + "\n".join([f"{officer['name']} - {officer['title']}" for officer in officers]) + "\n\n"
-            f"**Profile Verified:** {'Yes' if profile_verified else 'No'}\n"
-            f"**Verification Date:** {profile_verified_date}\n\n"
-            f"**Latest Filing Type:** {latest_filing_type}\n"
-            f"**Latest Filing Date:** {latest_filing_date}\n\n"
+            f"*Profile Verified:* {'Yes' if profile_verified else 'No'}\n"
+            f"*Verification Date:* {profile_verified_date}\n\n"
+            f"*Latest Filing Type:* {latest_filing_type}\n"
+            f"*Latest Filing Date:* {latest_filing_date}\n\n"
         )
 
         await update.message.reply_text(response_message, parse_mode='Markdown')
@@ -153,4 +168,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
