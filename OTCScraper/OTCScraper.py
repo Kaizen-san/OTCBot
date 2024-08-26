@@ -1,5 +1,5 @@
-import requests
-from telegram import Update
+﻿import requests
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, ContextTypes
 import logging
 from datetime import datetime
@@ -32,7 +32,6 @@ def convert_timestamp(date_str):
     except Exception as e:
         logger.error("Error converting timestamp: %s", e)
         return "Invalid Date"
-
 def format_number(value):
     try:
         return "{:,}".format(int(value))
@@ -123,8 +122,7 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         officers = parsed_profile.get("officers", [])
 
         profile_verified = parsed_profile.get("isProfileVerified", False)
-        profile_verified_date_raw = parsed_profile.get("profileVerifiedAsOfDate", "N/A")
-        profile_verified_date = convert_timestamp(profile_verified_date_raw)
+        profile_verified_date = convert_timestamp(parsed_profile.get("profileVerifiedAsOfDate", "N/A"))
 
         latest_filing_type = parsed_profile.get("latestFilingType", "N/A")
         latest_filing_date = convert_timestamp(parsed_profile.get("latestFilingDate", "N/A"))
@@ -132,29 +130,41 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         # Extract the previous close price from the trade JSON
         previous_close_price = parsed_trade.get("previousClose", "N/A")
 
-        # Format the response message
+        # Create buttons with links
+        keyboard = [
+            [
+                InlineKeyboardButton("📈 Chart", url=f"https://www.tradingview.com/symbols/{ticker}/?offer_id=10&aff_id=29379"),
+                InlineKeyboardButton("📄 OTC Profile", url=f"https://www.otcmarkets.com/stock/{ticker}/security"),
+                InlineKeyboardButton("🐦 Twitter", url=f"https://twitter.com/search?q=${ticker}&src=typed_query&f=live"),
+            ],
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        # Format the response message with emojis
         response_message = (
-            f"*Company Profile:*\n"
-            f"*Phone:* {company_profile['phone']}\n"
-            f"*Email:* {company_profile['email']}\n"
-            f"*Address:* {company_profile['address']['address1']}, {company_profile['address']['address2']}, {company_profile['address']['city']}, {company_profile['address']['state']}, {company_profile['address']['zip']}, {company_profile['address']['country']}\n"
-            f"*Website:* {company_profile['website']}\n"
-            f"*Twitter:* {company_profile['twitter']}\n"
-            f"*LinkedIn:* {company_profile['linkedin']}\n"
-            f"*Instagram:* {company_profile['instagram']}\n\n"
-            f"*Outstanding Shares:* {outstanding_shares} (As Of Date: {outstanding_shares_date})\n"
-            f"*Held at DTC:* {held_at_dtc} (As Of Date: {dtc_shares_date})\n"
-            f"*Public Float:* {public_float} (As Of Date: {public_float_date})\n"
-            f"*Previous Close Price:* ${previous_close_price}\n\n"
-            f"*Officers:*\n"
+            f"**Company Profile for {ticker}:**\n\n"
+            f"**📞 Phone:** {company_profile['phone']}\n"
+            f"**📧 Email:** {company_profile['email']}\n"
+            f"**🏢 Address:** {company_profile['address']['address1']}, {company_profile['address']['address2']}, "
+            f"{company_profile['address']['city']}, {company_profile['address']['state']}, "
+            f"{company_profile['address']['zip']}, {company_profile['address']['country']}\n"
+            f"**🌐 Website:** {company_profile['website']}\n"
+            f"**🐦 Twitter:** {company_profile['twitter']}\n"
+            f"**🔗 LinkedIn:** {company_profile['linkedin']}\n"
+            f"**📸 Instagram:** {company_profile['instagram']}\n\n"
+            f"**💼 Outstanding Shares:** {outstanding_shares} (As Of Date: {outstanding_shares_date})\n"
+            f"**🏦 Held at DTC:** {held_at_dtc} (As Of Date: {dtc_shares_date})\n"
+            f"**🌍 Public Float:** {public_float} (As Of Date: {public_float_date})\n"
+            f"**💵 Previous Close Price:** ${previous_close_price}\n\n"
+            f"**👥 Officers:**\n"
             + "\n".join([f"{officer['name']} - {officer['title']}" for officer in officers]) + "\n\n"
-            f"*Profile Verified:* {'Yes' if profile_verified else 'No'}\n"
-            f"*Verification Date:* {profile_verified_date}\n\n"
-            f"*Latest Filing Type:* {latest_filing_type}\n"
-            f"*Latest Filing Date:* {latest_filing_date}\n\n"
+            f"**✅ Profile Verified:** {'Yes' if profile_verified else 'No'}\n"
+            f"**🗓️ Verification Date:** {profile_verified_date}\n\n"
+            f"**📄 Latest Filing Type:** {latest_filing_type}\n"
+            f"**🗓️ Latest Filing Date:** {latest_filing_date}\n"
         )
 
-        await update.message.reply_text(response_message, parse_mode='Markdown')
+        await update.message.reply_text(response_message, reply_markup=reply_markup, parse_mode='Markdown')
     else:
         await update.message.reply_text("Failed to retrieve data.")
 
