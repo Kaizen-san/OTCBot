@@ -15,13 +15,10 @@ def convert_timestamp(date_str):
     if date_str == "N/A":
         return "N/A"
     try:
-        # Check if the date_str is a timestamp (in milliseconds)
         if isinstance(date_str, (int, float)):
             return datetime.utcfromtimestamp(date_str / 1000).strftime('%Y-%m-%d')
-        # Check if the date_str is a date string in format "M/D/YYYY"
         elif isinstance(date_str, str):
             try:
-                # Try to parse the date string "M/D/YYYY"
                 return datetime.strptime(date_str, "%m/%d/%Y").strftime('%Y-%m-%d')
             except ValueError:
                 logger.error("Error parsing date string: %s", date_str)
@@ -45,7 +42,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    # Get ticker symbol from the command arguments
     if context.args:
         ticker = context.args[0].upper()
     else:
@@ -54,7 +50,6 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     await update.message.reply_text(f"Fetching information for ticker: {ticker}")
 
-    # Step 1: Make the first HTTP request to get the company profile
     profile_url = f"https://backend.otcmarkets.com/otcapi/company/profile/full/{ticker}?symbol={ticker}"
     headers = {
         "Host": "backend.otcmarkets.com",
@@ -70,29 +65,24 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         profile_response = requests.get(profile_url, headers=headers)
         profile_response.raise_for_status()
         parsed_profile = profile_response.json()
-        logger.info("Company Profile Response: %s", parsed_profile)  # Debug log
+        logger.info("Company Profile Response: %s", parsed_profile)
     except requests.RequestException as e:
         await update.message.reply_text(f"Error fetching company profile: {e}")
         return
 
-    # Step 2: Make the second HTTP request to get the previous close price
     trade_url = f"https://backend.otcmarkets.com/otcapi/stock/trade/inside/{ticker}?symbol={ticker}"
     try:
         trade_response = requests.get(trade_url, headers=headers)
         trade_response.raise_for_status()
         parsed_trade = trade_response.json()
-        logger.info("Trade Response: %s", parsed_trade)  # Debug log
+        logger.info("Trade Response: %s", parsed_trade)
     except requests.RequestException as e:
-        await update.message.reply_text(f"Error fetching trade information: {e}")
-        return
+        logger.warning(f"No trade information available: {e}")
+        parsed_trade = None  # Set trade data to None if unavailable
 
-    # Step 3: Check if both requests were successful
-    if profile_response.status_code == 200 and trade_response.status_code == 200:
-        # Parse the JSON responses
+    if profile_response.status_code == 200:
         parsed_profile = profile_response.json()
-        parsed_trade = trade_response.json()
 
-        # Extract relevant information from the company profile JSON
         security = parsed_profile.get("securities", [{}])[0]
         outstanding_shares = format_number(security.get("outstandingShares", "N/A"))
         outstanding_shares_date = convert_timestamp(security.get("outstandingSharesAsOfDate", "N/A"))
@@ -128,20 +118,18 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         latest_filing_type = parsed_profile.get("latestFilingType", "N/A")
         latest_filing_date = convert_timestamp(parsed_profile.get("latestFilingDate", "N/A"))
 
-        # Extract the previous close price from the trade JSON
-        previous_close_price = parsed_trade.get("previousClose", "N/A")
+        # Extract previous close price only if trade information is available
+        previous_close_price = parsed_trade.get("previousClose", "N/A") if parsed_trade else "N/A"
 
-        # Create buttons with links
         keyboard = [
             [
                 InlineKeyboardButton("📈 Chart", url=f"https://www.tradingview.com/symbols/{ticker}/?offer_id=10&aff_id=29379"),
                 InlineKeyboardButton("📄 OTC Profile", url=f"https://www.otcmarkets.com/stock/{ticker}/security"),
-                InlineKeyboardButton("🐦 Twitter", url=f"https://twitter.com/search?q={ticker}&src=typed_query&f=live"),
+                InlineKeyboardButton("🐦 Twitter", url=f"https://twitter.com/search?q=${ticker}&src=typed_query&f=live"),
             ],
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
-        # Format the response message with emojis
         response_message = (
             f"*Company Profile for {ticker}:*\n\n"
             f"*💼 Outstanding Shares:* {outstanding_shares} (As of: {outstanding_shares_date})\n"
