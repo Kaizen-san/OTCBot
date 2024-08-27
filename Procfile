@@ -1,1 +1,1 @@
-python OTCScraper.py
+worker: python OTCScraper.py
