@@ -9,7 +9,7 @@ logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s
 logger = logging.getLogger(__name__)
 
 # Replace with your actual Telegram bot token
-TELEGRAM_TOKEN = "1746938345:AAENVpvuuGDgeHMNVVJ0q-qzFAmI2gr4SV0"
+TELEGRAM_TOKEN=Config.TELEGRAM_TOKEN
 
 def get_full_filing_url(relative_url):
     base_url = "https://www.otcmarkets.com/otcapi"
