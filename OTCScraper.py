@@ -12,8 +12,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-
+print("Config.TELEGRAM_TOKEN:", Config.TELEGRAM_TOKEN)
 TELEGRAM_TOKEN = Config.TELEGRAM_TOKEN
+print("TELEGRAM_TOKEN:", TELEGRAM_TOKEN)
+
 if not TELEGRAM_TOKEN:
     raise ValueError("No TELEGRAM_TOKEN set for Bot")
 
