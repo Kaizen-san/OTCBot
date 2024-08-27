@@ -9,8 +9,12 @@ from config import Config
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Replace with your actual Telegram bot token
+print("Config.TELEGRAM_TOKEN:", Config.TELEGRAM_TOKEN)
 TELEGRAM_TOKEN = Config.TELEGRAM_TOKEN
+print("TELEGRAM_TOKEN:", TELEGRAM_TOKEN)
+
+if not TELEGRAM_TOKEN:
+    raise ValueError("No TELEGRAM_TOKEN set for Bot")
 
 def get_full_filing_url(relative_url):
     base_url = "https://www.otcmarkets.com/otcapi"
