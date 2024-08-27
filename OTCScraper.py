@@ -175,7 +175,6 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 f"<b>📄 Latest Filing Type:</b> {custom_escape_html(latest_filing_type)}\n"
                 f"<b>🗓️ Latest Filing Date:</b> {custom_escape_html(latest_filing_date)}\n"
                 f"<b>📄 Latest Filing:</b> <a href='{latest_filing_url}'>View Filing</a>\n\n"
-                f"<b>📝 Business Description:</b> {custom_escape_html(business_desc)}\n"
                 f"<b>📞 Phone:</b> {custom_escape_html(company_profile['phone'])}\n"
                 f"<b>📧 Email:</b> {custom_escape_html(company_profile['email'])}\n"
                 f"<b>🏢 Address:</b> {custom_escape_html(company_profile['address']['address1'])}, {custom_escape_html(company_profile['address']['address2'])}, "
@@ -187,6 +186,8 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 f"<b>📸 Instagram:</b> {custom_escape_html(company_profile['instagram'])}\n\n"
                 f"<b>👥 Officers:</b>\n"
                 + "\n".join([f"{custom_escape_html(officer['name'])} - {custom_escape_html(officer['title'])}" for officer in officers]) + "\n\n"
+
+                f"<b>📝 Business Description:</b> {custom_escape_html(business_desc)}\n"
             )
 
             await update.message.reply_text(response_message, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
