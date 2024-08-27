@@ -4,7 +4,6 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 import logging
 from datetime import datetime
 from config import Config
-from telegram.helpers import escape_markdown
 from telegram.error import BadRequest
 from telegram.constants import ParseMode
 
@@ -42,22 +41,16 @@ def convert_timestamp(date_str):
         logger.error("Error converting timestamp: %s", e)
         return "Invalid Date"
 
-def safe_escape_markdown(text, version=2):
-    if not isinstance(text, (str, bytes)):
-        return str(text)  # Convert non-string/bytes to string
-    return escape_markdown(str(text), version=version)
-
-def custom_escape(text):
-    if not isinstance(text, str):
-        text = str(text)
-    chars = '_*[]()~`>#+-=|{}.!'
-    return ''.join(f'\\{c}' if c in chars else c for c in text)
-
 def format_number(value):
     try:
         return "{:,}".format(int(value))
     except (ValueError, TypeError):
         return value
+
+def custom_escape_html(text):
+    if not isinstance(text, str):
+        text = str(text)
+    return text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.debug("Received /start command")
@@ -166,56 +159,37 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         tier_display_emoji = "🎀" if tier_display_name == "Pink Current Information" else \
                              "🔺" if tier_display_name == "Pink Limited Information" else ""
 
-        caveat_emptor_message = "*☠️ Warning \\- Caveat Emptor: True*\n\n" if is_caveat_emptor else ""
+        caveat_emptor_message = "<b>☠️ Warning - Caveat Emptor: True</b>\n\n" if is_caveat_emptor else ""
 
         try:
-            ticker = safe_escape_markdown(ticker)
-            tier_display_name = safe_escape_markdown(tier_display_name)
-            outstanding_shares = safe_escape_markdown(outstanding_shares)
-            outstanding_shares_date = safe_escape_markdown(outstanding_shares_date)
-            held_at_dtc = safe_escape_markdown(held_at_dtc)
-            dtc_shares_date = safe_escape_markdown(dtc_shares_date)
-            public_float = safe_escape_markdown(public_float)
-            public_float_date = safe_escape_markdown(public_float_date)
-            previous_close_price = safe_escape_markdown(previous_close_price)
-            profile_verified_date = safe_escape_markdown(profile_verified_date)
-            latest_filing_type = safe_escape_markdown(latest_filing_type)
-            latest_filing_date = safe_escape_markdown(latest_filing_date)
-            latest_filing_url = safe_escape_markdown(latest_filing_url)
-            business_desc = safe_escape_markdown(business_desc)
-
-            company_profile_escaped = {k: safe_escape_markdown(v) for k, v in company_profile.items()}
-            company_profile_escaped['address'] = {k: safe_escape_markdown(v) for k, v in company_profile['address'].items()}
-
             response_message = (
-            f"*Company Profile for {custom_escape(ticker)}:*\n\n"
-            f"{tier_display_emoji} *{custom_escape(tier_display_name)}*\n"
-            f"{caveat_emptor_message}"
-            f"*💼 Outstanding Shares:* {custom_escape(outstanding_shares)} (As of: {custom_escape(outstanding_shares_date)})\n"
-            f"*🏦 Held at DTC:* {custom_escape(held_at_dtc)} (As of: {custom_escape(dtc_shares_date)})\n"
-            f"*🌍 Public Float:* {custom_escape(public_float)} (As of: {custom_escape(public_float_date)})\n"
-            f"*💵 Previous Close Price:* ${custom_escape(previous_close_price)}\n\n"
-            f"*✅ Profile Verified:* {'Yes' if profile_verified else 'No'}\n"
-            f"*🗓️ Verification Date:* {custom_escape(profile_verified_date)}\n\n"
-            f"*📄 Latest Filing Type:* {custom_escape(latest_filing_type)}\n"
-            f"*🗓️ Latest Filing Date:* {custom_escape(latest_filing_date)}\n"
-            f"*📄 Latest Filing:* [View Filing]({latest_filing_url})\n\n"
-            f"*📝 Business Description:* {custom_escape(business_desc)}\n"
-            f"*📞 Phone:* {custom_escape(company_profile['phone'])}\n"
-            f"*📧 Email:* {custom_escape(company_profile['email'])}\n"
-            f"*🏢 Address:* {custom_escape(company_profile['address']['address1'])}, {custom_escape(company_profile['address']['address2'])}, "
-            f"{custom_escape(company_profile['address']['city'])}, {custom_escape(company_profile['address']['state'])}, "
-            f"{custom_escape(company_profile['address']['zip'])}, {custom_escape(company_profile['address']['country'])}\n"
-            f"*🌐 Website:* {custom_escape(company_profile['website'])}\n"
-            f"*🐦 Twitter:* {custom_escape(company_profile['twitter'])}\n"
-            f"*🔗 LinkedIn:* {custom_escape(company_profile['linkedin'])}\n"
-            f"*📸 Instagram:* {custom_escape(company_profile['instagram'])}\n\n"
-            f"*👥 Officers:*\n"
-            + "\n".join([f"{custom_escape(officer['name'])} - {custom_escape(officer['title'])}" for officer in officers]) + "\n\n"
+                f"<b>Company Profile for {custom_escape_html(ticker)}:</b>\n\n"
+                f"{tier_display_emoji} <b>{custom_escape_html(tier_display_name)}</b>\n"
+                f"{caveat_emptor_message}"
+                f"<b>💼 Outstanding Shares:</b> {custom_escape_html(outstanding_shares)} (As of: {custom_escape_html(outstanding_shares_date)})\n"
+                f"<b>🏦 Held at DTC:</b> {custom_escape_html(held_at_dtc)} (As of: {custom_escape_html(dtc_shares_date)})\n"
+                f"<b>🌍 Public Float:</b> {custom_escape_html(public_float)} (As of: {custom_escape_html(public_float_date)})\n"
+                f"<b>💵 Previous Close Price:</b> ${custom_escape_html(previous_close_price)}\n\n"
+                f"<b>✅ Profile Verified:</b> {'Yes' if profile_verified else 'No'}\n"
+                f"<b>🗓️ Verification Date:</b> {custom_escape_html(profile_verified_date)}\n\n"
+                f"<b>📄 Latest Filing Type:</b> {custom_escape_html(latest_filing_type)}\n"
+                f"<b>🗓️ Latest Filing Date:</b> {custom_escape_html(latest_filing_date)}\n"
+                f"<b>📄 Latest Filing:</b> <a href='{latest_filing_url}'>View Filing</a>\n\n"
+                f"<b>📝 Business Description:</b> {custom_escape_html(business_desc)}\n"
+                f"<b>📞 Phone:</b> {custom_escape_html(company_profile['phone'])}\n"
+                f"<b>📧 Email:</b> {custom_escape_html(company_profile['email'])}\n"
+                f"<b>🏢 Address:</b> {custom_escape_html(company_profile['address']['address1'])}, {custom_escape_html(company_profile['address']['address2'])}, "
+                f"{custom_escape_html(company_profile['address']['city'])}, {custom_escape_html(company_profile['address']['state'])}, "
+                f"{custom_escape_html(company_profile['address']['zip'])}, {custom_escape_html(company_profile['address']['country'])}\n"
+                f"<b>🌐 Website:</b> {custom_escape_html(company_profile['website'])}\n"
+                f"<b>🐦 Twitter:</b> {custom_escape_html(company_profile['twitter'])}\n"
+                f"<b>🔗 LinkedIn:</b> {custom_escape_html(company_profile['linkedin'])}\n"
+                f"<b>📸 Instagram:</b> {custom_escape_html(company_profile['instagram'])}\n\n"
+                f"<b>👥 Officers:</b>\n"
+                + "\n".join([f"{custom_escape_html(officer['name'])} - {custom_escape_html(officer['title'])}" for officer in officers]) + "\n\n"
             )
 
-
-            await update.message.reply_text(response_message, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN_V2)
+            await update.message.reply_text(response_message, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
         except BadRequest as e:
             logger.error(f"Error sending formatted message: {e}")
             # Fall back to sending without parsing
