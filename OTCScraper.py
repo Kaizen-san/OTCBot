@@ -4,6 +4,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 import logging
 from datetime import datetime
 from config import Config
+from telegram.helpers import escape_markdown
 
 # Set up logging
 logging.basicConfig(
@@ -164,13 +165,33 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if is_caveat_emptor:
                 caveat_emptor_message = "*☠️ Warning - Caveat Emptor: True*\n\n"
                 
+        # Escape dynamic content
+        ticker = escape_markdown(ticker, version=2)
+        tier_display_name = escape_markdown(tier_display_name, version=2)
+        outstanding_shares = escape_markdown(str(outstanding_shares), version=2)
+        outstanding_shares_date = escape_markdown(str(outstanding_shares_date), version=2)
+        held_at_dtc = escape_markdown(str(held_at_dtc), version=2)
+        dtc_shares_date = escape_markdown(str(dtc_shares_date), version=2)
+        public_float = escape_markdown(str(public_float), version=2)
+        public_float_date = escape_markdown(str(public_float_date), version=2)
+        previous_close_price = escape_markdown(str(previous_close_price), version=2)
+        profile_verified_date = escape_markdown(str(profile_verified_date), version=2)
+        latest_filing_type = escape_markdown(latest_filing_type, version=2)
+        latest_filing_date = escape_markdown(str(latest_filing_date), version=2)
+        latest_filing_url = escape_markdown(latest_filing_url, version=2)
+        business_desc = escape_markdown(business_desc, version=2)
+
+        # Escape company profile data
+        company_profile_escaped = {k: escape_markdown(v, version=2) for k, v in company_profile.items()}
+        company_profile_escaped['address'] = {k: escape_markdown(v, version=2) for k, v in company_profile['address'].items()}
+                
         response_message = (
             f"*Company Profile for {ticker}:*\n\n"
             f"{tier_display_emoji} *{tier_display_name}*\n"
             f"{caveat_emptor_message}"
-            f"*💼 Outstanding Shares:* {outstanding_shares} (As of: {outstanding_shares_date})\n"
-            f"*🏦 Held at DTC:* {held_at_dtc} (As of: {dtc_shares_date})\n"
-            f"*🌍 Public Float:* {public_float} (As of: {public_float_date})\n"
+            f"*💼 Outstanding Shares:* {outstanding_shares} \\(As of: {outstanding_shares_date}\\)\n"
+            f"*🏦 Held at DTC:* {held_at_dtc} \\(As of: {dtc_shares_date}\\)\n"
+            f"*🌍 Public Float:* {public_float} \\(As of: {public_float_date}\\)\n"
             f"*💵 Previous Close Price:* ${previous_close_price}\n\n"
             f"*✅ Profile Verified:* {'Yes' if profile_verified else 'No'}\n"
             f"*🗓️ Verification Date:* {profile_verified_date}\n\n"
@@ -178,20 +199,21 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             f"*🗓️ Latest Filing Date:* {latest_filing_date}\n"
             f"*📄 Latest Filing:* [View Filing]({latest_filing_url})\n\n"
             f"*📝 Business Description:* {business_desc}\n"
-            f"*📞 Phone:* {company_profile['phone']}\n"
-            f"*📧 Email:* {company_profile['email']}\n"
-            f"*🏢 Address:* {company_profile['address']['address1']}, {company_profile['address']['address2']}, "
-            f"{company_profile['address']['city']}, {company_profile['address']['state']}, "
-            f"{company_profile['address']['zip']}, {company_profile['address']['country']}\n"
-            f"*🌐 Website:* {company_profile['website']}\n"
-            f"*🐦 Twitter:* {company_profile['twitter']}\n"
-            f"*🔗 LinkedIn:* {company_profile['linkedin']}\n"
-            f"*📸 Instagram:* {company_profile['instagram']}\n\n"
+            f"*📞 Phone:* {company_profile_escaped['phone']}\n"
+            f"*📧 Email:* {company_profile_escaped['email']}\n"
+            f"*🏢 Address:* {company_profile_escaped['address']['address1']}, {company_profile_escaped['address']['address2']}, "
+            f"{company_profile_escaped['address']['city']}, {company_profile_escaped['address']['state']}, "
+            f"{company_profile_escaped['address']['zip']}, {company_profile_escaped['address']['country']}\n"
+            f"*🌐 Website:* {company_profile_escaped['website']}\n"
+            f"*🐦 Twitter:* {company_profile_escaped['twitter']}\n"
+            f"*🔗 LinkedIn:* {company_profile_escaped['linkedin']}\n"
+            f"*📸 Instagram:* {company_profile_escaped['instagram']}\n\n"
             f"*👥 Officers:*\n"
-            + "\n".join([f"{officer['name']} - {officer['title']}" for officer in officers]) + "\n\n"
+            + "\n".join([f"{escape_markdown(officer['name'], version=2)} \\- {escape_markdown(officer['title'], version=2)}" for officer in officers]) + "\n\n"
         )
 
-        await update.message.reply_text(response_message, reply_markup=reply_markup, parse_mode='Markdown')
+        # When sending the message:
+        await update.message.reply_text(response_message, reply_markup=reply_markup, parse_mode='MarkdownV2')
     else:
         await update.message.reply_text("Failed to retrieve data.")
 
