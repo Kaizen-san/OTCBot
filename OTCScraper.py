@@ -3,7 +3,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, ContextTypes
 import logging
 from datetime import datetime
-import os
+from config import Config
 
 # Set up logging
 logging.basicConfig(
@@ -12,11 +12,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "DEFAULT_TOKEN_NOT_SET")
-logger.debug(f"Direct TELEGRAM_TOKEN: {TELEGRAM_TOKEN}")
+print("Config.TELEGRAM_TOKEN:", Config.TELEGRAM_TOKEN)
+TELEGRAM_TOKEN = Config.TELEGRAM_TOKEN
+print("TELEGRAM_TOKEN:", TELEGRAM_TOKEN)
 
-if TELEGRAM_TOKEN == "DEFAULT_TOKEN_NOT_SET":
-    logger.error("TELEGRAM_TOKEN not found in environment variables")
+if not TELEGRAM_TOKEN:
     raise ValueError("No TELEGRAM_TOKEN set for Bot")
 
 def get_full_filing_url(relative_url):
