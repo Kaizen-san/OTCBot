@@ -49,11 +49,14 @@ def format_number(value):
         return value
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    logger.debug("Received /start command")
     await update.message.reply_text(
         "Hello! Send me a ticker symbol to get the stock information.\nUse /info <TICKER> to get the stock info."
     )
 
 async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    logger.debug("Received /info command with args: %s", context.args)
+    
     if context.args:
         ticker = context.args[0].upper()
     else:
@@ -79,6 +82,7 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         parsed_profile = profile_response.json()
         logger.info("Company Profile Response: %s", parsed_profile)
     except requests.RequestException as e:
+        logger.error(f"Error fetching company profile: {e}")
         await update.message.reply_text(f"Error fetching company profile: {e}")
         return
 
@@ -133,7 +137,7 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         latest_filing_url = parsed_profile.get("latestFilingUrl", "N/A")
         latest_filing_url = parsed_profile.get("latestFilingUrl", "N/A")
         if latest_filing_url and latest_filing_url != "N/A":
-           latest_filing_url = get_full_filing_url(latest_filing_url)
+            latest_filing_url = get_full_filing_url(latest_filing_url)
 
         # Extract previous close price only if trade information is available
         previous_close_price = parsed_trade.get("previousClose", "N/A") if parsed_trade else "N/A"
@@ -192,6 +196,7 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("Failed to retrieve data.")
 
 def main() -> None:
+    logger.debug("Starting bot")
     application = Application.builder().token(TELEGRAM_TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
