@@ -3,14 +3,10 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, ContextTypes
 import logging
 from datetime import datetime
-from config import Config
+import os
 
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
-
-logger.debug(f"Config.TELEGRAM_TOKEN: {Config.TELEGRAM_TOKEN}")
-TELEGRAM_TOKEN = Config.TELEGRAM_TOKEN
-logger.debug(f"TELEGRAM_TOKEN: {TELEGRAM_TOKEN}")
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "DEFAULT_TOKEN_NOT_SET")
+logger.debug(f"Direct TELEGRAM_TOKEN: {TELEGRAM_TOKEN}")
 
 if TELEGRAM_TOKEN == "DEFAULT_TOKEN_NOT_SET":
     logger.error("TELEGRAM_TOKEN not found in environment variables")
