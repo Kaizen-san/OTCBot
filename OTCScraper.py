@@ -5,6 +5,13 @@ import logging
 from datetime import datetime
 import os
 
+# Set up logging
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
+
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "DEFAULT_TOKEN_NOT_SET")
 logger.debug(f"Direct TELEGRAM_TOKEN: {TELEGRAM_TOKEN}")
 
