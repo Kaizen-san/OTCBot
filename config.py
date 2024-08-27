@@ -1,3 +1,4 @@
 import os
 
-TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
+class Config:
+    TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
