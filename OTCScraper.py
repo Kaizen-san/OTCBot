@@ -5,6 +5,8 @@ import logging
 from datetime import datetime
 from config import Config
 from telegram.helpers import escape_markdown
+from telegram.error import BadRequest
+from telegram.constants import ParseMode
 
 # Set up logging
 logging.basicConfig(
@@ -13,10 +15,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-print("Config.TELEGRAM_TOKEN:", Config.TELEGRAM_TOKEN)
 TELEGRAM_TOKEN = Config.TELEGRAM_TOKEN
-print("TELEGRAM_TOKEN:", TELEGRAM_TOKEN)
-
 if not TELEGRAM_TOKEN:
     raise ValueError("No TELEGRAM_TOKEN set for Bot")
 
@@ -42,6 +41,11 @@ def convert_timestamp(date_str):
     except Exception as e:
         logger.error("Error converting timestamp: %s", e)
         return "Invalid Date"
+
+def safe_escape_markdown(text, version=2):
+    if not isinstance(text, (str, bytes)):
+        return str(text)  # Convert non-string/bytes to string
+    return escape_markdown(str(text), version=version)
 
 def format_number(value):
     try:
@@ -136,16 +140,13 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         latest_filing_type = parsed_profile.get("latestFilingType", "N/A")
         latest_filing_date = convert_timestamp(parsed_profile.get("latestFilingDate", "N/A"))
         latest_filing_url = parsed_profile.get("latestFilingUrl", "N/A")
-        latest_filing_url = parsed_profile.get("latestFilingUrl", "N/A")
         if latest_filing_url and latest_filing_url != "N/A":
             latest_filing_url = get_full_filing_url(latest_filing_url)
 
-        # Extract previous close price only if trade information is available
         previous_close_price = parsed_trade.get("previousClose", "N/A") if parsed_trade else "N/A"
 
-        # Parse additional fields
         business_desc = parsed_profile.get("businessDesc", "N/A")
-        is_caveat_emptor = parsed_profile.get("isCaveatEmptor", False)  # Default to False if not present
+        is_caveat_emptor = parsed_profile.get("isCaveatEmptor", False)
 
         keyboard = [
             [
@@ -156,64 +157,66 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
-         # Determine emoji based on Tier Display Name
         tier_display_emoji = "🎀" if tier_display_name == "Pink Current Information" else \
                              "🔺" if tier_display_name == "Pink Limited Information" else ""
 
-        # Determine Caveat Emptor message
-        caveat_emptor_message = ""
-        if is_caveat_emptor:
-                caveat_emptor_message = "*☠️ Warning - Caveat Emptor: True*\n\n"
-                
-        # Escape dynamic content
-        ticker = escape_markdown(ticker, version=2)
-        tier_display_name = escape_markdown(tier_display_name, version=2)
-        outstanding_shares = escape_markdown(str(outstanding_shares), version=2)
-        outstanding_shares_date = escape_markdown(str(outstanding_shares_date), version=2)
-        held_at_dtc = escape_markdown(str(held_at_dtc), version=2)
-        dtc_shares_date = escape_markdown(str(dtc_shares_date), version=2)
-        public_float = escape_markdown(str(public_float), version=2)
-        public_float_date = escape_markdown(str(public_float_date), version=2)
-        previous_close_price = escape_markdown(str(previous_close_price), version=2)
-        profile_verified_date = escape_markdown(str(profile_verified_date), version=2)
-        latest_filing_type = escape_markdown(latest_filing_type, version=2)
-        latest_filing_date = escape_markdown(str(latest_filing_date), version=2)
-        latest_filing_url = escape_markdown(latest_filing_url, version=2)
-        business_desc = escape_markdown(business_desc, version=2)
+        caveat_emptor_message = "*☠️ Warning \\- Caveat Emptor: True*\n\n" if is_caveat_emptor else ""
 
-        # Escape company profile data
-        company_profile_escaped = {k: escape_markdown(v, version=2) for k, v in company_profile.items()}
-        company_profile_escaped['address'] = {k: escape_markdown(v, version=2) for k, v in company_profile['address'].items()}
-                
-        response_message = (
-            f"*Company Profile for {ticker}:*\n\n"
-            f"{tier_display_emoji} *{tier_display_name}*\n"
-            f"{caveat_emptor_message}"
-            f"*💼 Outstanding Shares:* {outstanding_shares} \\(As of: {outstanding_shares_date}\\)\n"
-            f"*🏦 Held at DTC:* {held_at_dtc} \\(As of: {dtc_shares_date}\\)\n"
-            f"*🌍 Public Float:* {public_float} \\(As of: {public_float_date}\\)\n"
-            f"*💵 Previous Close Price:* ${previous_close_price}\n\n"
-            f"*✅ Profile Verified:* {'Yes' if profile_verified else 'No'}\n"
-            f"*🗓️ Verification Date:* {profile_verified_date}\n\n"
-            f"*📄 Latest Filing Type:* {latest_filing_type}\n"
-            f"*🗓️ Latest Filing Date:* {latest_filing_date}\n"
-            f"*📄 Latest Filing:* [View Filing]({latest_filing_url})\n\n"
-            f"*📝 Business Description:* {business_desc}\n"
-            f"*📞 Phone:* {company_profile_escaped['phone']}\n"
-            f"*📧 Email:* {company_profile_escaped['email']}\n"
-            f"*🏢 Address:* {company_profile_escaped['address']['address1']}, {company_profile_escaped['address']['address2']}, "
-            f"{company_profile_escaped['address']['city']}, {company_profile_escaped['address']['state']}, "
-            f"{company_profile_escaped['address']['zip']}, {company_profile_escaped['address']['country']}\n"
-            f"*🌐 Website:* {company_profile_escaped['website']}\n"
-            f"*🐦 Twitter:* {company_profile_escaped['twitter']}\n"
-            f"*🔗 LinkedIn:* {company_profile_escaped['linkedin']}\n"
-            f"*📸 Instagram:* {company_profile_escaped['instagram']}\n\n"
-            f"*👥 Officers:*\n"
-            + "\n".join([f"{escape_markdown(officer['name'], version=2)} \\- {escape_markdown(officer['title'], version=2)}" for officer in officers]) + "\n\n"
-        )
+        try:
+            ticker = safe_escape_markdown(ticker)
+            tier_display_name = safe_escape_markdown(tier_display_name)
+            outstanding_shares = safe_escape_markdown(outstanding_shares)
+            outstanding_shares_date = safe_escape_markdown(outstanding_shares_date)
+            held_at_dtc = safe_escape_markdown(held_at_dtc)
+            dtc_shares_date = safe_escape_markdown(dtc_shares_date)
+            public_float = safe_escape_markdown(public_float)
+            public_float_date = safe_escape_markdown(public_float_date)
+            previous_close_price = safe_escape_markdown(previous_close_price)
+            profile_verified_date = safe_escape_markdown(profile_verified_date)
+            latest_filing_type = safe_escape_markdown(latest_filing_type)
+            latest_filing_date = safe_escape_markdown(latest_filing_date)
+            latest_filing_url = safe_escape_markdown(latest_filing_url)
+            business_desc = safe_escape_markdown(business_desc)
 
-        # When sending the message:
-        await update.message.reply_text(response_message, reply_markup=reply_markup, parse_mode='MarkdownV2')
+            company_profile_escaped = {k: safe_escape_markdown(v) for k, v in company_profile.items()}
+            company_profile_escaped['address'] = {k: safe_escape_markdown(v) for k, v in company_profile['address'].items()}
+
+            response_message = (
+                f"*Company Profile for {ticker}:*\n\n"
+                f"{tier_display_emoji} *{tier_display_name}*\n"
+                f"{caveat_emptor_message}"
+                f"*💼 Outstanding Shares:* {outstanding_shares} \\(As of: {outstanding_shares_date}\\)\n"
+                f"*🏦 Held at DTC:* {held_at_dtc} \\(As of: {dtc_shares_date}\\)\n"
+                f"*🌍 Public Float:* {public_float} \\(As of: {public_float_date}\\)\n"
+                f"*💵 Previous Close Price:* ${previous_close_price}\n\n"
+                f"*✅ Profile Verified:* {'Yes' if profile_verified else 'No'}\n"
+                f"*🗓️ Verification Date:* {profile_verified_date}\n\n"
+                f"*📄 Latest Filing Type:* {latest_filing_type}\n"
+                f"*🗓️ Latest Filing Date:* {latest_filing_date}\n"
+                f"*📄 Latest Filing:* [View Filing]({latest_filing_url})\n\n"
+                f"*📝 Business Description:* {business_desc}\n"
+                f"*📞 Phone:* {company_profile_escaped['phone']}\n"
+                f"*📧 Email:* {company_profile_escaped['email']}\n"
+                f"*🏢 Address:* {company_profile_escaped['address']['address1']}, {company_profile_escaped['address']['address2']}, "
+                f"{company_profile_escaped['address']['city']}, {company_profile_escaped['address']['state']}, "
+                f"{company_profile_escaped['address']['zip']}, {company_profile_escaped['address']['country']}\n"
+                f"*🌐 Website:* {company_profile_escaped['website']}\n"
+                f"*🐦 Twitter:* {company_profile_escaped['twitter']}\n"
+                f"*🔗 LinkedIn:* {company_profile_escaped['linkedin']}\n"
+                f"*📸 Instagram:* {company_profile_escaped['instagram']}\n\n"
+                f"*👥 Officers:*\n"
+                + "\n".join([f"{safe_escape_markdown(officer['name'])} \\- {safe_escape_markdown(officer['title'])}" for officer in officers]) + "\n\n"
+            )
+
+            await update.message.reply_text(response_message, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN_V2)
+        except BadRequest as e:
+            logger.error(f"Error sending formatted message: {e}")
+            # Fall back to sending without parsing
+            await update.message.reply_text("Error in formatting. Here's the raw data:", parse_mode=None)
+            await update.message.reply_text(str(response_message), reply_markup=reply_markup, parse_mode=None)
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            await update.message.reply_text("An unexpected error occurred. Please try again later.")
     else:
         await update.message.reply_text("Failed to retrieve data.")
 
@@ -222,7 +225,7 @@ def main() -> None:
     application = Application.builder().token(TELEGRAM_TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("info", info))  # Add the /info command handler
+    application.add_handler(CommandHandler("info", info))
 
     application.run_polling()
 
