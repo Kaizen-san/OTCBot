@@ -47,6 +47,12 @@ def safe_escape_markdown(text, version=2):
         return str(text)  # Convert non-string/bytes to string
     return escape_markdown(str(text), version=version)
 
+def custom_escape(text):
+    if not isinstance(text, str):
+        text = str(text)
+    chars = '_*[]()~`>#+-=|{}.!'
+    return ''.join(f'\\{c}' if c in chars else c for c in text)
+
 def format_number(value):
     try:
         return "{:,}".format(int(value))
@@ -182,31 +188,32 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             company_profile_escaped['address'] = {k: safe_escape_markdown(v) for k, v in company_profile['address'].items()}
 
             response_message = (
-                f"*Company Profile for {ticker}:*\n\n"
-                f"{tier_display_emoji} *{tier_display_name}*\n"
-                f"{caveat_emptor_message}"
-                f"*💼 Outstanding Shares:* {outstanding_shares} \\(As of: {outstanding_shares_date}\\)\n"
-                f"*🏦 Held at DTC:* {held_at_dtc} \\(As of: {dtc_shares_date}\\)\n"
-                f"*🌍 Public Float:* {public_float} \\(As of: {public_float_date}\\)\n"
-                f"*💵 Previous Close Price:* ${previous_close_price}\n\n"
-                f"*✅ Profile Verified:* {'Yes' if profile_verified else 'No'}\n"
-                f"*🗓️ Verification Date:* {profile_verified_date}\n\n"
-                f"*📄 Latest Filing Type:* {latest_filing_type}\n"
-                f"*🗓️ Latest Filing Date:* {latest_filing_date}\n"
-                f"*📄 Latest Filing:* [View Filing]({latest_filing_url})\n\n"
-                f"*📝 Business Description:* {business_desc}\n"
-                f"*📞 Phone:* {company_profile_escaped['phone']}\n"
-                f"*📧 Email:* {company_profile_escaped['email']}\n"
-                f"*🏢 Address:* {company_profile_escaped['address']['address1']}, {company_profile_escaped['address']['address2']}, "
-                f"{company_profile_escaped['address']['city']}, {company_profile_escaped['address']['state']}, "
-                f"{company_profile_escaped['address']['zip']}, {company_profile_escaped['address']['country']}\n"
-                f"*🌐 Website:* {company_profile_escaped['website']}\n"
-                f"*🐦 Twitter:* {company_profile_escaped['twitter']}\n"
-                f"*🔗 LinkedIn:* {company_profile_escaped['linkedin']}\n"
-                f"*📸 Instagram:* {company_profile_escaped['instagram']}\n\n"
-                f"*👥 Officers:*\n"
-                + "\n".join([f"{safe_escape_markdown(officer['name'])} \\- {safe_escape_markdown(officer['title'])}" for officer in officers]) + "\n\n"
+            f"*Company Profile for {custom_escape(ticker)}:*\n\n"
+            f"{tier_display_emoji} *{custom_escape(tier_display_name)}*\n"
+            f"{caveat_emptor_message}"
+            f"*💼 Outstanding Shares:* {custom_escape(outstanding_shares)} (As of: {custom_escape(outstanding_shares_date)})\n"
+            f"*🏦 Held at DTC:* {custom_escape(held_at_dtc)} (As of: {custom_escape(dtc_shares_date)})\n"
+            f"*🌍 Public Float:* {custom_escape(public_float)} (As of: {custom_escape(public_float_date)})\n"
+            f"*💵 Previous Close Price:* ${custom_escape(previous_close_price)}\n\n"
+            f"*✅ Profile Verified:* {'Yes' if profile_verified else 'No'}\n"
+            f"*🗓️ Verification Date:* {custom_escape(profile_verified_date)}\n\n"
+            f"*📄 Latest Filing Type:* {custom_escape(latest_filing_type)}\n"
+            f"*🗓️ Latest Filing Date:* {custom_escape(latest_filing_date)}\n"
+            f"*📄 Latest Filing:* [View Filing]({latest_filing_url})\n\n"
+            f"*📝 Business Description:* {custom_escape(business_desc)}\n"
+            f"*📞 Phone:* {custom_escape(company_profile['phone'])}\n"
+            f"*📧 Email:* {custom_escape(company_profile['email'])}\n"
+            f"*🏢 Address:* {custom_escape(company_profile['address']['address1'])}, {custom_escape(company_profile['address']['address2'])}, "
+            f"{custom_escape(company_profile['address']['city'])}, {custom_escape(company_profile['address']['state'])}, "
+            f"{custom_escape(company_profile['address']['zip'])}, {custom_escape(company_profile['address']['country'])}\n"
+            f"*🌐 Website:* {custom_escape(company_profile['website'])}\n"
+            f"*🐦 Twitter:* {custom_escape(company_profile['twitter'])}\n"
+            f"*🔗 LinkedIn:* {custom_escape(company_profile['linkedin'])}\n"
+            f"*📸 Instagram:* {custom_escape(company_profile['instagram'])}\n\n"
+            f"*👥 Officers:*\n"
+            + "\n".join([f"{custom_escape(officer['name'])} - {custom_escape(officer['title'])}" for officer in officers]) + "\n\n"
             )
+
 
             await update.message.reply_text(response_message, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN_V2)
         except BadRequest as e:
