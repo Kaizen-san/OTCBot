@@ -5,15 +5,15 @@ import logging
 from datetime import datetime
 from config import Config
 
-# Set up logging
-logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-print("Config.TELEGRAM_TOKEN:", Config.TELEGRAM_TOKEN)
+logger.debug(f"Config.TELEGRAM_TOKEN: {Config.TELEGRAM_TOKEN}")
 TELEGRAM_TOKEN = Config.TELEGRAM_TOKEN
-print("TELEGRAM_TOKEN:", TELEGRAM_TOKEN)
+logger.debug(f"TELEGRAM_TOKEN: {TELEGRAM_TOKEN}")
 
-if not TELEGRAM_TOKEN:
+if TELEGRAM_TOKEN == "DEFAULT_TOKEN_NOT_SET":
+    logger.error("TELEGRAM_TOKEN not found in environment variables")
     raise ValueError("No TELEGRAM_TOKEN set for Bot")
 
 def get_full_filing_url(relative_url):
