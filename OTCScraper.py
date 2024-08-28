@@ -100,7 +100,7 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         logger.warning(f"No trade information available: {e}")
         parsed_trade = None  # Set trade data to None if unavailable
 
-        news_url = f"https://backend.otcmarkets.com/otcapi/company/{ticker}/dns/news?symbol={ticker}&page=1&pageSize=5&sortOn=releaseDate&sortDir=DESC"
+    news_url = f"https://backend.otcmarkets.com/otcapi/company/{ticker}/dns/news?symbol={ticker}&page=1&pageSize=5&sortOn=releaseDate&sortDir=DESC"
     try:
         news_response = requests.get(news_url, headers=headers)
         news_response.raise_for_status()
