@@ -200,7 +200,7 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
           for news in latest_news:
             news_content += f"• {custom_escape_html(news['releaseDate'])}: {custom_escape_html(news['title'])}\n"
         else:
-        news_content += "No recent news available.\n"
+         news_content += "No recent news available.\n"
 
         try:
             response_message = (
