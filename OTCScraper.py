@@ -100,9 +100,9 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         logger.warning(f"No trade information available: {e}")
         parsed_trade = None  # Set trade data to None if unavailable
 
-     def fetch_news(ticker):
-        news_url = f"https://backend.otcmarkets.com/otcapi/company/{ticker}/dns/news?symbol={ticker}&page=1&pageSize=5&sortOn=releaseDate&sortDir=DESC"
-        headers = {
+        def fetch_news(ticker):
+         news_url = f"https://backend.otcmarkets.com/otcapi/company/{ticker}/dns/news?symbol={ticker}&page=1&pageSize=5&sortOn=releaseDate&sortDir=DESC"
+         headers = {
             "Host": "backend.otcmarkets.com",
             "Origin": "https://www.otcmarkets.com",
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36",
@@ -125,10 +125,10 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 release_date = datetime.fromtimestamp(release_date / 1000).strftime('%Y-%m-%d')
             latest_news.append({'title': title, 'releaseDate': release_date})
 
-            return latest_news
-        except requests.RequestException as e:
-            logger.error(f"Error fetching news: {e}")
-            return []
+        return latest_news
+    except requests.RequestException as e:
+        logger.error(f"Error fetching news: {e}")
+        return []
 
 
     if profile_response.status_code == 200:
@@ -195,8 +195,8 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         latest_news = fetch_news(ticker)
 
         # Prepare news content
-       news_content = "<b>📰 Latest News:</b>\n"
-       for news in latest_news:
+        news_content = "<b>📰 Latest News:</b>\n"
+        for news in latest_news:
          news_content += f"• {custom_escape_html(news['releaseDate'])}: {custom_escape_html(news['title'])}\n"
 
         try:
