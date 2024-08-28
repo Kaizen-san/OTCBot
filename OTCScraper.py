@@ -178,8 +178,6 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         caveat_emptor_message = "<b>☠️ Warning - Caveat Emptor: True</b>\n\n" if is_caveat_emptor else ""
 
-        latest_news = fetch_news(ticker)
-
         # Prepare news content
         news_content = "<b>📰 Latest News:</b>\n"
         if latest_news:
