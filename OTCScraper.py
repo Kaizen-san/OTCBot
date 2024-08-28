@@ -100,23 +100,12 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         logger.warning(f"No trade information available: {e}")
         parsed_trade = None  # Set trade data to None if unavailable
 
-        def fetch_news(ticker):
-         news_url = f"https://backend.otcmarkets.com/otcapi/company/{ticker}/dns/news?symbol={ticker}&page=1&pageSize=5&sortOn=releaseDate&sortDir=DESC"
-         headers = {
-            "Host": "backend.otcmarkets.com",
-            "Origin": "https://www.otcmarkets.com",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36",
-            "Accept": "application/json, text/plain, */*",
-            "Accept-Language": "en-US,en;q=0.9",
-            "Connection": "keep-alive",
-            "Referer": "https://www.otcmarkets.com/",
-        }
-
+        news_url = f"https://backend.otcmarkets.com/otcapi/company/{ticker}/dns/news?symbol={ticker}&page=1&pageSize=5&sortOn=releaseDate&sortDir=DESC"
     try:
-        response = requests.get(news_url, headers=headers)
-        response.raise_for_status()
-        news_data = response.json()
-
+        news_response = requests.get(news_url, headers=headers)
+        news_response.raise_for_status()
+        news_data = news_response.json()
+        
         latest_news = []
         for item in news_data.get('records', [])[:3]:
             title = item.get('title', 'N/A')
@@ -124,12 +113,9 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             if release_date != 'N/A':
                 release_date = datetime.fromtimestamp(release_date / 1000).strftime('%Y-%m-%d')
             latest_news.append({'title': title, 'releaseDate': release_date})
-
-        return latest_news
     except requests.RequestException as e:
         logger.error(f"Error fetching news: {e}")
-        return []
-
+        latest_news = []
 
     if profile_response.status_code == 200:
         parsed_profile = profile_response.json()
