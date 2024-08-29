@@ -72,7 +72,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 async def add_to_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    global ticker_data
     query = update.callback_query
     await query.answer()
 
@@ -87,7 +86,8 @@ async def add_to_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             await query.edit_message_text(f"{ticker} is already in your watchlist!")
             return
 
-        # Fetch the parsed profile, trade, and news data from the global dictionary
+        # Fetch the parsed profile, trade, and news data from context.bot_data
+        ticker_data = context.bot_data.get('ticker_data', {})
         ticker_info = ticker_data.get(ticker)
         if not ticker_info:
             await query.edit_message_text("Error: Profile data not found. Please try fetching the info again.")
@@ -131,17 +131,13 @@ async def add_to_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         sheet.append_row(row_data)
         await query.edit_message_text(f"{ticker} has been added to your watchlist with all available information!")
 
-        # Clear the data from the global dictionary to free up memory
-        del ticker_data[ticker]
+        # Clear the data from context.bot_data to free up memory
+        del context.bot_data['ticker_data'][ticker]
     except Exception as e:
         logger.error(f"Error adding to watchlist: {e}")
         await query.edit_message_text("An error occurred while adding to the watchlist. Please try again later.")
 
-# At the top of your file, keep or add this global dictionary
-ticker_data = {}
-
 async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    global ticker_data
     logger.debug("Received /info command with args: %s", context.args)
     
     if context.args:
@@ -201,8 +197,10 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         logger.error(f"Error fetching news: {e}")
         latest_news = []
 
-    # Store the parsed data in the global dictionary
-    ticker_data[ticker] = {
+    # Store the parsed data in context.bot_data
+    if 'ticker_data' not in context.bot_data:
+        context.bot_data['ticker_data'] = {}
+    context.bot_data['ticker_data'][ticker] = {
         'profile': parsed_profile,
         'trade': parsed_trade,
         'news': latest_news
