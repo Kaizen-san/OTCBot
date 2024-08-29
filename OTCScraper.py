@@ -9,7 +9,7 @@ from telegram.constants import ParseMode
 import gspread
 from google.oauth2.service_account import Credentials
 
-# Set up logging
+# Set up loggingg
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.DEBUG
