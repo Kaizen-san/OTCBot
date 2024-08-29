@@ -72,6 +72,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 async def add_to_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    global ticker_data
     query = update.callback_query
     await query.answer()
 
@@ -86,13 +87,15 @@ async def add_to_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             await query.edit_message_text(f"{ticker} is already in your watchlist!")
             return
 
-        # Fetch the parsed profile and trade data from the context
-        parsed_profile = context.user_data.get('parsed_profile')
-        parsed_trade = context.user_data.get('parsed_trade')
-
-        if not parsed_profile or not parsed_trade:
+        # Fetch the parsed profile, trade, and news data from the global dictionary
+        ticker_info = ticker_data.get(ticker)
+        if not ticker_info:
             await query.edit_message_text("Error: Profile data not found. Please try fetching the info again.")
             return
+
+        parsed_profile = ticker_info['profile']
+        parsed_trade = ticker_info['trade']
+        latest_news = ticker_info['news']
 
         # Extract the required information
         security = parsed_profile.get("securities", [{}])[0]
@@ -113,22 +116,32 @@ async def add_to_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         previous_close_price = parsed_trade.get("previousClose", "N/A") if parsed_trade else "N/A"
         is_caveat_emptor = parsed_profile.get("isCaveatEmptor", False)
 
+        # Format the latest news
+        news_str = "; ".join([f"{news['releaseDate']}: {news['title']}" for news in latest_news])
+
         # Prepare the row data
         row_data = [
             ticker, str(user_id), username, datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             tier_display_name, outstanding_shares, outstanding_shares_date, held_at_dtc, dtc_shares_date,
             public_float, public_float_date, previous_close_price, profile_verified, profile_verified_date,
-            latest_filing_type, latest_filing_date, latest_filing_url, is_caveat_emptor
+            latest_filing_type, latest_filing_date, latest_filing_url, is_caveat_emptor, news_str
         ]
 
         # Add the data to the watchlist
         sheet.append_row(row_data)
         await query.edit_message_text(f"{ticker} has been added to your watchlist with all available information!")
+
+        # Clear the data from the global dictionary to free up memory
+        del ticker_data[ticker]
     except Exception as e:
         logger.error(f"Error adding to watchlist: {e}")
         await query.edit_message_text("An error occurred while adding to the watchlist. Please try again later.")
 
+# At the top of your file, keep or add this global dictionary
+ticker_data = {}
+
 async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    global ticker_data
     logger.debug("Received /info command with args: %s", context.args)
     
     if context.args:
@@ -140,6 +153,9 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(f"Fetching information for ticker: {ticker}")
 
     profile_url = f"https://backend.otcmarkets.com/otcapi/company/profile/full/{ticker}?symbol={ticker}"
+    trade_url = f"https://backend.otcmarkets.com/otcapi/stock/trade/inside/{ticker}?symbol={ticker}"
+    news_url = f"https://backend.otcmarkets.com/otcapi/company/{ticker}/dns/news?symbol={ticker}&page=1&pageSize=5&sortOn=releaseDate&sortDir=DESC"
+    
     headers = {
         "Host": "backend.otcmarkets.com",
         "Origin": "https://www.otcmarkets.com",
@@ -160,7 +176,6 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(f"Error fetching company profile: {e}")
         return
 
-    trade_url = f"https://backend.otcmarkets.com/otcapi/stock/trade/inside/{ticker}?symbol={ticker}"
     try:
         trade_response = requests.get(trade_url, headers=headers)
         trade_response.raise_for_status()
@@ -168,9 +183,8 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         logger.info("Trade Response: %s", parsed_trade)
     except requests.RequestException as e:
         logger.warning(f"No trade information available: {e}")
-        parsed_trade = None  # Set trade data to None if unavailable
+        parsed_trade = None
 
-    news_url = f"https://backend.otcmarkets.com/otcapi/company/{ticker}/dns/news?symbol={ticker}&page=1&pageSize=5&sortOn=releaseDate&sortDir=DESC"
     try:
         news_response = requests.get(news_url, headers=headers)
         news_response.raise_for_status()
@@ -186,6 +200,13 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     except requests.RequestException as e:
         logger.error(f"Error fetching news: {e}")
         latest_news = []
+
+    # Store the parsed data in the global dictionary
+    ticker_data[ticker] = {
+        'profile': parsed_profile,
+        'trade': parsed_trade,
+        'news': latest_news
+    }
 
     if profile_response.status_code == 200:
         parsed_profile = profile_response.json()
