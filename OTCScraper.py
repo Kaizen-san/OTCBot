@@ -6,6 +6,8 @@ from datetime import datetime
 from config import Config
 from telegram.error import BadRequest
 from telegram.constants import ParseMode
+import gspread
+from google.oauth2.service_account import Credentials
 
 # Set up logging
 logging.basicConfig(
@@ -17,6 +19,17 @@ logger = logging.getLogger(__name__)
 TELEGRAM_TOKEN = Config.TELEGRAM_TOKEN
 if not TELEGRAM_TOKEN:
     raise ValueError("No TELEGRAM_TOKEN set for Bot")
+
+# Google Sheets setup
+GOOGLE_SHEETS_CREDENTIALS = Config.GOOGLE_SHEETS_CREDENTIALS
+WATCHLIST_SHEET_ID = Config.WATCHLIST_SHEET_ID
+
+scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+creds = Credentials.from_service_account_file(GOOGLE_SHEETS_CREDENTIALS, scopes=scope)
+client = gspread.authorize(creds)
+
+# Open the Google Sheet
+sheet = client.open_by_key(WATCHLIST_SHEET_ID).sheet1
 
 def get_full_filing_url(relative_url):
     base_url = "https://www.otcmarkets.com/otcapi"
@@ -57,6 +70,28 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
         "Hello! Send me a ticker symbol to get the stock information.\nUse /info <TICKER> to get the stock info."
     )
+
+async def add_to_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+
+    ticker = query.data.split('_')[1]
+    user_id = update.effective_user.id
+    username = update.effective_user.username or "Unknown"
+
+    try:
+        # Check if the ticker is already in the watchlist
+        cell = sheet.find(ticker, in_column=1)
+        if cell:
+            await query.edit_message_text(f"{ticker} is already in your watchlist!")
+            return
+
+        # Add the ticker to the watchlist
+        sheet.append_row([ticker, str(user_id), username, datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
+        await query.edit_message_text(f"{ticker} has been added to your watchlist!")
+    except Exception as e:
+        logger.error(f"Error adding to watchlist: {e}")
+        await query.edit_message_text("An error occurred while adding to the watchlist. Please try again later.")
 
 async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.debug("Received /info command with args: %s", context.args)
@@ -170,6 +205,9 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 InlineKeyboardButton("📄 OTC Profile", url=f"https://www.otcmarkets.com/stock/{ticker}/security"),
                 InlineKeyboardButton("🐦 Twitter", url=f"https://twitter.com/search?q=${ticker}&src=typed_query&f=live"),
             ],
+            [
+                InlineKeyboardButton("➕ Add to Watchlist", callback_data=f"add_watchlist_{ticker}")
+            ]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -234,6 +272,7 @@ def main() -> None:
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("info", info))
+    application.add_handler(CallbackQueryHandler(add_to_watchlist, pattern="^add_watchlist_"))
 
     application.run_polling()
 
