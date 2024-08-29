@@ -29,7 +29,7 @@ creds = Credentials.from_service_account_file(GOOGLE_SHEETS_CREDENTIALS, scopes=
 client = gspread.authorize(creds)
 
 # Open the Google Sheet
-sheet = client.open_by_key("1EWVVCYC5EbYzx3jIFhwthdTJxyNvWdz57kzX-DRwwn0").sheet1
+sheet = client.open_by_key(WATCHLIST_SHEET_ID).sheet1
 
 def get_full_filing_url(relative_url):
     base_url = "https://www.otcmarkets.com/otcapi"
