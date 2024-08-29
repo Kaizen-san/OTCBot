@@ -21,11 +21,11 @@ if not TELEGRAM_TOKEN:
     raise ValueError("No TELEGRAM_TOKEN set for Bot")
 
 # Google Sheets setup
-GOOGLE_SHEETS_CREDENTIALS = Config.GOOGLE_SHEETS_CREDENTIALS
+GOOGLE_APPLICATION_CREDENTIALS = Config.GOOGLE_APPLICATION_CREDENTIALS
 WATCHLIST_SHEET_ID = Config.WATCHLIST_SHEET_ID
 
 scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-creds = Credentials.from_service_account_file(GOOGLE_SHEETS_CREDENTIALS, scopes=scope)
+creds = Credentials.from_service_account_file(GOOGLE_APPLICATION_CREDENTIALS, scopes=scope)
 client = gspread.authorize(creds)
 
 # Open the Google Sheet
