@@ -86,9 +86,44 @@ async def add_to_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             await query.edit_message_text(f"{ticker} is already in your watchlist!")
             return
 
-        # Add the ticker to the watchlist
-        sheet.append_row([ticker, str(user_id), username, datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
-        await query.edit_message_text(f"{ticker} has been added to your watchlist!")
+        # Fetch the parsed profile and trade data from the context
+        parsed_profile = context.user_data.get('parsed_profile')
+        parsed_trade = context.user_data.get('parsed_trade')
+
+        if not parsed_profile or not parsed_trade:
+            await query.edit_message_text("Error: Profile data not found. Please try fetching the info again.")
+            return
+
+        # Extract the required information
+        security = parsed_profile.get("securities", [{}])[0]
+        outstanding_shares = format_number(security.get("outstandingShares", "N/A"))
+        outstanding_shares_date = convert_timestamp(security.get("outstandingSharesAsOfDate", "N/A"))
+        held_at_dtc = format_number(security.get("dtcShares", "N/A"))
+        dtc_shares_date = convert_timestamp(security.get("dtcSharesAsOfDate", "N/A"))
+        public_float = format_number(security.get("publicFloat", "N/A"))
+        public_float_date = convert_timestamp(security.get("publicFloatAsOfDate", "N/A"))
+        tier_display_name = security.get("tierDisplayName", "N/A")
+        profile_verified = parsed_profile.get("isProfileVerified", False)
+        profile_verified_date = convert_timestamp(parsed_profile.get("profileVerifiedAsOfDate", "N/A"))
+        latest_filing_type = parsed_profile.get("latestFilingType", "N/A")
+        latest_filing_date = convert_timestamp(parsed_profile.get("latestFilingDate", "N/A"))
+        latest_filing_url = parsed_profile.get("latestFilingUrl", "N/A")
+        if latest_filing_url and latest_filing_url != "N/A":
+            latest_filing_url = get_full_filing_url(latest_filing_url)
+        previous_close_price = parsed_trade.get("previousClose", "N/A") if parsed_trade else "N/A"
+        is_caveat_emptor = parsed_profile.get("isCaveatEmptor", False)
+
+        # Prepare the row data
+        row_data = [
+            ticker, str(user_id), username, datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            tier_display_name, outstanding_shares, outstanding_shares_date, held_at_dtc, dtc_shares_date,
+            public_float, public_float_date, previous_close_price, profile_verified, profile_verified_date,
+            latest_filing_type, latest_filing_date, latest_filing_url, is_caveat_emptor
+        ]
+
+        # Add the data to the watchlist
+        sheet.append_row(row_data)
+        await query.edit_message_text(f"{ticker} has been added to your watchlist with all available information!")
     except Exception as e:
         logger.error(f"Error adding to watchlist: {e}")
         await query.edit_message_text("An error occurred while adding to the watchlist. Please try again later.")
