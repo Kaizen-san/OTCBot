@@ -9,7 +9,7 @@ from telegram.constants import ParseMode
 import gspread
 from google.oauth2.service_account import Credentials
 
-# Set up loggingg
+# Set up logging
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.DEBUG
@@ -20,7 +20,7 @@ TELEGRAM_TOKEN = Config.TELEGRAM_TOKEN
 if not TELEGRAM_TOKEN:
     raise ValueError("No TELEGRAM_TOKEN set for Bot")
 
-# Google Sheets setupp
+# Google Sheets setup
 GOOGLE_APPLICATION_CREDENTIALS = Config.GOOGLE_APPLICATION_CREDENTIALS
 WATCHLIST_SHEET_ID = Config.WATCHLIST_SHEET_ID
 
