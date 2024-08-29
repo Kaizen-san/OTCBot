@@ -260,7 +260,7 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             [
                 InlineKeyboardButton("📈 Chart", url=f"https://www.tradingview.com/symbols/{ticker}/?offer_id=10&aff_id=29379"),
                 InlineKeyboardButton("📄 OTC Profile", url=f"https://www.otcmarkets.com/stock/{ticker}/security"),
-                InlineKeyboardButton("🐦 Twitter", url=f"https://twitter.com/search?q=${ticker}&src=typed_query&f=live"),
+                InlineKeyboardButton("🐦 Twitter", url=f"https://x.com/search?q=${ticker}&src=typed_query&f=live"),
             ],
             [
                 InlineKeyboardButton("➕ Add to Watchlist", callback_data=f"add_watchlist_{ticker}")
