@@ -366,11 +366,6 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     else:
         await update.message.reply_text("Failed to retrieve data.")
 
-def setup_handlers(application):
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("info", info))
-    application.add_handler(CallbackQueryHandler(add_to_watchlist, pattern="^add_watchlist_"))
-    
     # Add a fallback handler for unrecognized commands
     application.add_handler(MessageHandler(filters.COMMAND, unknown_command))
 
@@ -378,14 +373,25 @@ async def unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     await update.message.reply_text("Sorry, I don't understand that command.")
 
 
+import asyncio
+
 async def main() -> None:
-    application = Application.builder().token(TELEGRAM_TOKEN).build()
-    
     setup_handlers(application)
 
-    await application.initialize()
-    await application.start()
-    await application.run_polling(allowed_updates=Update.ALL_TYPES)
+    try:
+        await application.initialize()
+        await application.start()
+        await application.run_polling(allowed_updates=Update.ALL_TYPES)
+    finally:
+        await application.stop()
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except RuntimeError as e:
+        if str(e) == "This event loop is already running":
+            # If an event loop is already running, use that instead
+            loop = asyncio.get_event_loop()
+            loop.run_until_complete(main())
+        else:
+            raise
