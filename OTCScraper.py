@@ -86,7 +86,7 @@ async def add_to_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     username = update.effective_user.username or "Unknown"
 
     logger.debug(f"Adding {ticker} to watchlist for user {user_id}")
-    logger.debug(f"Current ticker_data: {json.dumps(ticker_data, default=str)}")
+    logger.debug(f"Current ticker_data keys: {list(ticker_data.keys())}")
 
     try:
         # Check if the ticker is already in the watchlist
