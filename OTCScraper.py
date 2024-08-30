@@ -86,6 +86,7 @@ async def add_to_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     username = update.effective_user.username or "Unknown"
 
     logger.debug(f"Adding {ticker} to watchlist for user {user_id}")
+    logger.debug(f"Current ticker_data: {json.dumps(ticker_data, default=str)}")
 
     try:
         # Check if the ticker is already in the watchlist
@@ -95,7 +96,6 @@ async def add_to_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             return
 
         # Fetch the parsed profile, trade, and news data from the global dictionary
-        logger.debug(f"Current ticker_data: {json.dumps(ticker_data, default=str)}")
         ticker_info = ticker_data.get(ticker)
         if not ticker_info:
             logger.error(f"Ticker data not found for {ticker}")
@@ -145,8 +145,8 @@ async def add_to_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         # Clear the data from the global dictionary to free up memory
         del ticker_data[ticker]
     except Exception as e:
-        logger.error(f"Error adding to watchlist: {e}")
-        await query.edit_message_text("An error occurred while adding to the watchlist. Please try again later.")
+        logger.error(f"Error adding {ticker} to watchlist: {str(e)}")
+        await query.edit_message_text(f"An error occurred while adding {ticker} to the watchlist. Please try again later.")
 
 async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     global ticker_data
@@ -218,10 +218,8 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         logger.error(f"Error fetching news: {e}")
         latest_news = []
 
-    # Store the parsed data in the global dictionary
-  
-       # Store the parsed data in the global dictionary
-    try: 
+    try:
+        # Store the parsed data in the global dictionary
         ticker_data[ticker] = {
             'profile': parsed_profile,
             'trade': parsed_trade,
