@@ -208,6 +208,8 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         'trade': parsed_trade,
         'news': latest_news
     }
+    logger.debug("Stored ticker data: %s", ticker_data)
+
 
     if profile_response.status_code == 200:
         parsed_profile = profile_response.json()
