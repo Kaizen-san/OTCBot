@@ -143,12 +143,10 @@ async def add_to_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
 async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     global ticker_data
-    ticker = context.args[0].upper()
+    ticker = context.args[0].upper() if context.args else None
     logger.debug("Received /info command with args: %s", context.args)
     
-    if context.args:
-        ticker = context.args[0].upper()
-    else:
+    if not ticker:
         await update.message.reply_text("Please provide a ticker symbol. Usage: /info <TICKER>")
         return
 
@@ -157,7 +155,7 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     profile_url = f"https://backend.otcmarkets.com/otcapi/company/profile/full/{ticker}?symbol={ticker}"
     trade_url = f"https://backend.otcmarkets.com/otcapi/stock/trade/inside/{ticker}?symbol={ticker}"
     news_url = f"https://backend.otcmarkets.com/otcapi/company/{ticker}/dns/news?symbol={ticker}&page=1&pageSize=5&sortOn=releaseDate&sortDir=DESC"
-    
+
     headers = {
         "Host": "backend.otcmarkets.com",
         "Origin": "https://www.otcmarkets.com",
@@ -169,6 +167,7 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     }
 
     try:
+        # Fetch Profile Data
         profile_response = requests.get(profile_url, headers=headers)
         profile_response.raise_for_status()
         parsed_profile = profile_response.json()
@@ -179,6 +178,7 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     try:
+        # Fetch Trade Data
         trade_response = requests.get(trade_url, headers=headers)
         trade_response.raise_for_status()
         parsed_trade = trade_response.json()
@@ -188,34 +188,25 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         parsed_trade = None
 
     try:
+        # Fetch News Data
         news_response = requests.get(news_url, headers=headers)
         news_response.raise_for_status()
         news_data = news_response.json()
-        
-        latest_news = []
-        for item in news_data.get('records', [])[:3]:
-            title = item.get('title', 'N/A')
-            release_date = item.get('releaseDate', 'N/A')
-            if release_date != 'N/A':
-                release_date = datetime.fromtimestamp(release_date / 1000).strftime('%Y-%m-%d')
-            latest_news.append({'title': title, 'releaseDate': release_date})
+        latest_news = [{'title': item.get('title', 'N/A'),
+                        'releaseDate': datetime.fromtimestamp(item.get('releaseDate', 0) / 1000).strftime('%Y-%m-%d')}
+                       for item in news_data.get('records', [])[:3]]
     except requests.RequestException as e:
         logger.error(f"Error fetching news: {e}")
         latest_news = []
 
     # Store the parsed data in the global dictionary
-    if parsed_profile and parsed_trade:
-        ticker_data[ticker] = {
-            'profile': parsed_profile,
-            'trade': parsed_trade,
-            'news': latest_news
-        }
-        logger.info(f"Data stored for ticker {ticker}: {ticker_data[ticker]}")
-    else:
-        logger.error(f"Failed to store data for ticker {ticker}")
+    ticker_data[ticker] = {
+        'profile': parsed_profile,
+        'trade': parsed_trade,
+        'news': latest_news
+    }
+    logger.info(f"Data stored for ticker {ticker}: {ticker_data[ticker]}")
    
-
-
     if profile_response.status_code == 200:
         parsed_profile = profile_response.json()
 
