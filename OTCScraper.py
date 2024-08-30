@@ -8,6 +8,7 @@ from telegram.error import BadRequest
 from telegram.constants import ParseMode
 import gspread
 from google.oauth2.service_account import Credentials
+import jason
 
 # Set up loggingsss
 logging.basicConfig(
@@ -157,6 +158,12 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     await update.message.reply_text(f"Fetching information for ticker: {ticker}")
+    
+    if not ticker:
+        await update.message.reply_text("Please provide a ticker symbol. Usage: /info <TICKER>")
+        return
+
+    await update.message.reply_text(f"Fetching information for ticker: {ticker}")
 
     profile_url = f"https://backend.otcmarkets.com/otcapi/company/profile/full/{ticker}?symbol={ticker}"
     trade_url = f"https://backend.otcmarkets.com/otcapi/stock/trade/inside/{ticker}?symbol={ticker}"
@@ -206,12 +213,19 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         latest_news = []
 
     # Store the parsed data in the global dictionary
-    ticker_data[ticker] = {
-        'profile': parsed_profile,
-        'trade': parsed_trade,
-        'news': latest_news
-    }
-    logger.info(f"Data stored for ticker {ticker}: {json.dumps(ticker_data[ticker], default=str)}")
+  
+       # Store the parsed data in the global dictionary
+    try: 
+        ticker_data[ticker] = {
+            'profile': parsed_profile,
+            'trade': parsed_trade,
+            'news': latest_news
+        }
+        logger.info(f"Data stored for ticker {ticker}: {json.dumps(ticker_data[ticker], default=str)}")
+    except Exception as e:
+        logger.error(f"Error storing data for ticker {ticker}: {str(e)}")
+        await update.message.reply_text(f"An error occurred while processing data for {ticker}. Please try again.")
+        return
    
     if profile_response.status_code == 200:
         parsed_profile = profile_response.json()
