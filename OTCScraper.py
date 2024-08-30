@@ -9,7 +9,7 @@ from telegram.error import BadRequest
 from telegram.constants import ParseMode
 import gspread
 from google.oauth2.service_account import Credentials
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters
+from telegram.ext import CommandHandler, CallbackQueryHandler, MessageHandler, filters
 from telegram.request import HTTPXRequest
 import asyncio
 from telegram.error import TimedOut, NetworkError
@@ -393,13 +393,27 @@ async def main() -> None:
     finally:
         await application.stop()
 
+import asyncio
+
+async def main() -> None:
+    application = Application.builder().token(TELEGRAM_TOKEN).build()
+    
+    # Add handlers
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("info", info))
+    application.add_handler(CallbackQueryHandler(add_to_watchlist, pattern="^add_watchlist_"))
+    application.add_handler(MessageHandler(filters.COMMAND, unknown_command))
+
+    # Start the bot
+    await application.initialize()
+    await application.start()
+    print("Bot started...")
+    
+    # Run the bot until the user presses Ctrl-C
+    await application.run_polling(allowed_updates=Update.ALL_TYPES)
+
 if __name__ == '__main__':
     try:
         asyncio.run(main())
-    except RuntimeError as e:
-        if str(e) == "This event loop is already running":
-            # If an event loop is already running, use that instead
-            loop = asyncio.get_event_loop()
-            loop.run_until_complete(main())
-        else:
-            raise
+    except KeyboardInterrupt:
+        print("Bot stopped.")
