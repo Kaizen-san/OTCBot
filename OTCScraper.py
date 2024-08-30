@@ -13,8 +13,6 @@ from telegram.ext import CommandHandler, CallbackQueryHandler, MessageHandler, f
 from telegram.request import HTTPXRequest
 import asyncio
 from telegram.error import TimedOut, NetworkError
-import uvloop
-
 
 async def error_handler(update, context):
     if isinstance(context.error, (TimedOut, NetworkError)):
@@ -390,5 +388,4 @@ async def main() -> None:
     await application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == '__main__':
-    uvloop.install()
     asyncio.run(main())
