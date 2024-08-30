@@ -85,6 +85,8 @@ async def add_to_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     user_id = update.effective_user.id
     username = update.effective_user.username or "Unknown"
 
+    logger.debug(f"Adding {ticker} to watchlist for user {user_id}")
+
     try:
         # Check if the ticker is already in the watchlist
         cell = sheet.find(ticker, in_column=1)
@@ -93,10 +95,14 @@ async def add_to_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             return
 
         # Fetch the parsed profile, trade, and news data from the global dictionary
+        logger.debug(f"Current ticker_data: {json.dumps(ticker_data, default=str)}")
         ticker_info = ticker_data.get(ticker)
         if not ticker_info:
-            await query.edit_message_text("Error: Profile data not found. Please try fetching the info again.")
+            logger.error(f"Ticker data not found for {ticker}")
+            await query.edit_message_text(f"Error: Profile data not found for {ticker}. Please fetch the info again using /info {ticker}")
             return
+
+        logger.debug(f"Retrieved ticker_info for {ticker}: {json.dumps(ticker_info, default=str)}")
 
         parsed_profile = ticker_info['profile']
         parsed_trade = ticker_info['trade']
