@@ -2,44 +2,27 @@ import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler
 import logging
-import json
 from datetime import datetime
 from config import Config
 from telegram.error import BadRequest
 from telegram.constants import ParseMode
 import gspread
 from google.oauth2.service_account import Credentials
-from telegram.ext import Application, CommandHandler
 from telegram.request import HTTPXRequest
 import asyncio
 from telegram.error import TimedOut, NetworkError
+import json
+import time
 
-async def error_handler(update, context):
-    if isinstance(context.error, (TimedOut, NetworkError)):
-        logger.warning('Network error: %s', str(context.error))
-        try:
-            await asyncio.sleep(1)  # Wait a bit before retrying
-            if update.message:
-                await update.message.reply_text("Sorry, I'm experiencing some network issues. Please try again in a moment.")
-        except Exception as e:
-            logger.error("Failed to send error message: %s", str(e))
-    else:
-        logger.error('Update "%s" caused error "%s"', update, context.error)
 
-# Set up loggingsss
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.DEBUG
-)
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 TELEGRAM_TOKEN = Config.TELEGRAM_TOKEN
 if not TELEGRAM_TOKEN:
     raise ValueError("No TELEGRAM_TOKEN set for Bot")
 
-# Increase the timeout to 30 seconds
 request = HTTPXRequest(connection_pool_size=8, read_timeout=30, write_timeout=30)
-
 application = Application.builder().token(TELEGRAM_TOKEN).request(request).build()
 
 # Google Sheets setup
@@ -49,13 +32,9 @@ WATCHLIST_SHEET_ID = Config.WATCHLIST_SHEET_ID
 scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
 creds = Credentials.from_service_account_file(GOOGLE_APPLICATION_CREDENTIALS, scopes=scope)
 client = gspread.authorize(creds)
-
-# Open the Google Sheet
 sheet = client.open_by_key(WATCHLIST_SHEET_ID).sheet1
 
-# At the top of your file, keep or add this global dictionary
 ticker_data = {}
-
 
 def get_full_filing_url(relative_url):
     base_url = "https://www.otcmarkets.com/otcapi"
@@ -368,22 +347,34 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     else:
         await update.message.reply_text("Failed to retrieve data.")
 
+class RateLimiter:
+    def __init__(self, max_calls, time_frame):
+        self.max_calls = max_calls
+        self.time_frame = time_frame
+        self.calls = []
+
+    def try_acquire(self):
+        now = time.time()
+        self.calls = [call for call in self.calls if now - call < self.time_frame]
+        if len(self.calls) < self.max_calls:
+            self.calls.append(now)
+            return True
+        return False
+
+rate_limiter = RateLimiter(max_calls=30, time_frame=1)  # 30 calls per second
+
+async def rate_limited_request(method, *args, **kwargs):
+    while not rate_limiter.try_acquire():
+        await asyncio.sleep(0.1)
+    return await method(*args, **kwargs)
+
 def main() -> None:
-    logger.debug("Starting bot")
-    
-    # Increase the timeout to 30 seconds
-    request = HTTPXRequest(connection_pool_size=8, read_timeout=30, write_timeout=30)
-    
-    application = Application.builder().token(TELEGRAM_TOKEN).request(request).build()
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("info", info))
     application.add_handler(CallbackQueryHandler(add_to_watchlist, pattern="^add_watchlist_"))
 
-    # Add the error handler
-    application.add_error_handler(error_handler)
-
-    application.run_polling()
+    application.run_polling(poll_interval=1.0)  # Increase polling interval
 
 if __name__ == "__main__":
     main()
