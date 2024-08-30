@@ -2,13 +2,13 @@ import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler
 import logging
+import json
 from datetime import datetime
 from config import Config
 from telegram.error import BadRequest
 from telegram.constants import ParseMode
 import gspread
 from google.oauth2.service_account import Credentials
-import jason
 
 # Set up loggingsss
 logging.basicConfig(
