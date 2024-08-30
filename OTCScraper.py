@@ -9,10 +9,12 @@ from telegram.error import BadRequest
 from telegram.constants import ParseMode
 import gspread
 from google.oauth2.service_account import Credentials
-from telegram.ext import Application, CommandHandler
+from telegram.ext import CommandHandler, CallbackQueryHandler, MessageHandler, filters
 from telegram.request import HTTPXRequest
 import asyncio
 from telegram.error import TimedOut, NetworkError
+import uvloop
+
 
 async def error_handler(update, context):
     if isinstance(context.error, (TimedOut, NetworkError)):
@@ -168,9 +170,7 @@ async def add_to_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         await query.edit_message_text(f"An error occurred while adding {ticker} to the watchlist. Please try again later.")
 
 async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    global ticker_data
     ticker = context.args[0].upper() if context.args else None
-    logger.debug("Received /info command with args: %s", context.args)
     
     if not ticker:
         await update.message.reply_text("Please provide a ticker symbol. Usage: /info <TICKER>")
@@ -368,22 +368,27 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     else:
         await update.message.reply_text("Failed to retrieve data.")
 
-def main() -> None:
-    logger.debug("Starting bot")
-    
-    # Increase the timeout to 30 seconds
-    request = HTTPXRequest(connection_pool_size=8, read_timeout=30, write_timeout=30)
-    
-    application = Application.builder().token(TELEGRAM_TOKEN).request(request).build()
-
+def setup_handlers(application):
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("info", info))
     application.add_handler(CallbackQueryHandler(add_to_watchlist, pattern="^add_watchlist_"))
+    
+    # Add a fallback handler for unrecognized commands
+    application.add_handler(MessageHandler(filters.COMMAND, unknown_command))
 
-    # Add the error handler
-    application.add_error_handler(error_handler)
+async def unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.message.reply_text("Sorry, I don't understand that command.")
 
-    application.run_polling()
 
-if __name__ == "__main__":
-    main()
+async def main() -> None:
+    application = Application.builder().token(TELEGRAM_TOKEN).build()
+    
+    setup_handlers(application)
+
+    await application.initialize()
+    await application.start()
+    await application.run_polling(allowed_updates=Update.ALL_TYPES)
+
+if __name__ == '__main__':
+    uvloop.install()
+    asyncio.run(main())
