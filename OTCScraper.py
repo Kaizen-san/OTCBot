@@ -143,6 +143,7 @@ async def add_to_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
 async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     global ticker_data
+    ticker = context.args[0].upper()
     logger.debug("Received /info command with args: %s", context.args)
     
     if context.args:
@@ -203,12 +204,16 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         latest_news = []
 
     # Store the parsed data in the global dictionary
-    ticker_data[ticker] = {
-        'profile': parsed_profile,
-        'trade': parsed_trade,
-        'news': latest_news
-    }
-    logger.debug("Stored ticker data: %s", ticker_data)
+    if parsed_profile and parsed_trade:
+        ticker_data[ticker] = {
+            'profile': parsed_profile,
+            'trade': parsed_trade,
+            'news': latest_news
+        }
+        logger.info(f"Data stored for ticker {ticker}: {ticker_data[ticker]}")
+    else:
+        logger.error(f"Failed to store data for ticker {ticker}")
+   
 
 
     if profile_response.status_code == 200:
