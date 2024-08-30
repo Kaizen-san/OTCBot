@@ -388,11 +388,18 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 def main() -> None:
     logger.debug("Starting bot")
-    application = Application.builder().token(TELEGRAM_TOKEN).build()
+    
+    # Increase the timeout to 30 seconds
+    request = HTTPXRequest(connection_pool_size=8, read_timeout=30, write_timeout=30)
+    
+    application = Application.builder().token(TELEGRAM_TOKEN).request(request).build()
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("info", info))
     application.add_handler(CallbackQueryHandler(add_to_watchlist, pattern="^add_watchlist_"))
+
+    # Add the error handler
+    application.add_error_handler(error_handler)
 
     application.run_polling()
 
