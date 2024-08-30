@@ -9,7 +9,7 @@ from telegram.error import BadRequest
 from telegram.constants import ParseMode
 import gspread
 from google.oauth2.service_account import Credentials
-from telegram.ext import CommandHandler, CallbackQueryHandler, MessageHandler, filters
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters
 from telegram.request import HTTPXRequest
 import asyncio
 from telegram.error import TimedOut, NetworkError
@@ -376,7 +376,15 @@ async def unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 import asyncio
 
 async def main() -> None:
-    setup_handlers(application)
+    application = Application.builder().token(TELEGRAM_TOKEN).build()
+    
+    # Add handlers directly in the main function
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("info", info))
+    application.add_handler(CallbackQueryHandler(add_to_watchlist, pattern="^add_watchlist_"))
+    
+    # Add a fallback handler for unrecognized commands
+    application.add_handler(MessageHandler(filters.COMMAND, unknown_command))
 
     try:
         await application.initialize()
