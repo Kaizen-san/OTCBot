@@ -102,7 +102,7 @@ async def add_to_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     query = update.callback_query
     await query.answer()
 
-    ticker = query.data.split('_')[1]
+    ticker = query.data.split('_')[-1]  # Use the last part of the split string
     user_id = update.effective_user.id
     username = update.effective_user.username or "Unknown"
 
@@ -122,8 +122,6 @@ async def add_to_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             logger.error(f"Ticker data not found for {ticker}")
             await query.edit_message_text(f"Error: Profile data not found for {ticker}. Please fetch the info again using /info {ticker}")
             return
-
-        logger.debug(f"Retrieved ticker_info for {ticker}: {json.dumps(ticker_info, default=str)}")
 
         parsed_profile = ticker_info['profile']
         parsed_trade = ticker_info['trade']
@@ -192,22 +190,6 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 logger.error(f"Failed to fetch info after {max_retries} attempts: {str(e)}")
                 await update.message.reply_text("Sorry, I'm having trouble fetching the information. Please try again later.")
                 return
-    
-    if not ticker:
-        await update.message.reply_text("Please provide a ticker symbol. Usage: /info <TICKER>")
-        return
-
-    await update.message.reply_text(f"Fetching information for ticker: {ticker}")
-    
-    if not ticker:
-        await update.message.reply_text("Please provide a ticker symbol. Usage: /info <TICKER>")
-        return
-
-    await update.message.reply_text(f"Fetching information for ticker: {ticker}")
-    
-    if not ticker:
-        await update.message.reply_text("Please provide a ticker symbol. Usage: /info <TICKER>")
-        return
 
     await update.message.reply_text(f"Fetching information for ticker: {ticker}")
 
@@ -329,6 +311,8 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             ]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
+
+        logger.debug(f"Sending response for ticker {ticker} with callback data: add_watchlist_{ticker}")
         
 
         tier_display_emoji = "🎀" if tier_display_name == "Pink Current Information" else \
