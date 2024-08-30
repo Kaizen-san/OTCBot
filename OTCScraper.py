@@ -395,25 +395,19 @@ async def main() -> None:
 
 import asyncio
 
-async def main() -> None:
-    application = Application.builder().token(TELEGRAM_TOKEN).build()
+def run_app():
+    app = Application.builder().token(TELEGRAM_TOKEN).build()
     
     # Add handlers
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("info", info))
-    application.add_handler(CallbackQueryHandler(add_to_watchlist, pattern="^add_watchlist_"))
-    application.add_handler(MessageHandler(filters.COMMAND, unknown_command))
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("info", info))
+    app.add_handler(CallbackQueryHandler(add_to_watchlist, pattern="^add_watchlist_"))
+    app.add_handler(MessageHandler(filters.COMMAND, unknown_command))
 
     # Start the bot
-    await application.initialize()
-    await application.start()
-    print("Bot started...")
-    
-    # Run the bot until the user presses Ctrl-C
-    await application.run_polling(allowed_updates=Update.ALL_TYPES)
+    print("Starting bot...")
+    app.run_polling(allowed_updates=Update.ALL_TYPES)
+    print("Bot stopped.")
 
 if __name__ == '__main__':
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        print("Bot stopped.")
+    run_app()
