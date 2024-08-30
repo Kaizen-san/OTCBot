@@ -9,6 +9,22 @@ from telegram.error import BadRequest
 from telegram.constants import ParseMode
 import gspread
 from google.oauth2.service_account import Credentials
+from telegram.ext import Application, CommandHandler
+from telegram.request import HTTPXRequest
+import asyncio
+from telegram.error import TimedOut, NetworkError
+
+async def error_handler(update, context):
+    if isinstance(context.error, (TimedOut, NetworkError)):
+        logger.warning('Network error: %s', str(context.error))
+        try:
+            await asyncio.sleep(1)  # Wait a bit before retrying
+            if update.message:
+                await update.message.reply_text("Sorry, I'm experiencing some network issues. Please try again in a moment.")
+        except Exception as e:
+            logger.error("Failed to send error message: %s", str(e))
+    else:
+        logger.error('Update "%s" caused error "%s"', update, context.error)
 
 # Set up loggingsss
 logging.basicConfig(
@@ -20,6 +36,11 @@ logger = logging.getLogger(__name__)
 TELEGRAM_TOKEN = Config.TELEGRAM_TOKEN
 if not TELEGRAM_TOKEN:
     raise ValueError("No TELEGRAM_TOKEN set for Bot")
+
+# Increase the timeout to 30 seconds
+request = HTTPXRequest(connection_pool_size=8, read_timeout=30, write_timeout=30)
+
+application = Application.builder().token(TELEGRAM_TOKEN).request(request).build()
 
 # Google Sheets setup
 GOOGLE_APPLICATION_CREDENTIALS = Config.GOOGLE_APPLICATION_CREDENTIALS
@@ -152,6 +173,25 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     global ticker_data
     ticker = context.args[0].upper() if context.args else None
     logger.debug("Received /info command with args: %s", context.args)
+    
+    if not ticker:
+        await update.message.reply_text("Please provide a ticker symbol. Usage: /info <TICKER>")
+        return
+
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            await update.message.reply_text(f"Fetching information for ticker: {ticker}")
+            # Rest of your existing code...
+            break  # If successful, break out of the retry loop
+        except (TimedOut, NetworkError) as e:
+            if attempt < max_retries - 1:  # i.e. not on the last attempt
+                logger.warning(f"Attempt {attempt + 1} failed: {str(e)}. Retrying...")
+                await asyncio.sleep(1)  # Wait a bit before retrying
+            else:
+                logger.error(f"Failed to fetch info after {max_retries} attempts: {str(e)}")
+                await update.message.reply_text("Sorry, I'm having trouble fetching the information. Please try again later.")
+                return
     
     if not ticker:
         await update.message.reply_text("Please provide a ticker symbol. Usage: /info <TICKER>")
