@@ -151,6 +151,12 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     await update.message.reply_text(f"Fetching information for ticker: {ticker}")
+    
+    if not ticker:
+        await update.message.reply_text("Please provide a ticker symbol. Usage: /info <TICKER>")
+        return
+
+    await update.message.reply_text(f"Fetching information for ticker: {ticker}")
 
     profile_url = f"https://backend.otcmarkets.com/otcapi/company/profile/full/{ticker}?symbol={ticker}"
     trade_url = f"https://backend.otcmarkets.com/otcapi/stock/trade/inside/{ticker}?symbol={ticker}"
@@ -205,7 +211,7 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         'trade': parsed_trade,
         'news': latest_news
     }
-    logger.info(f"Data stored for ticker {ticker}: {ticker_data[ticker]}")
+    logger.info(f"Data stored for ticker {ticker}: {json.dumps(ticker_data[ticker], default=str)}")
    
     if profile_response.status_code == 200:
         parsed_profile = profile_response.json()
@@ -265,6 +271,7 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             ]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
+        
 
         tier_display_emoji = "🎀" if tier_display_name == "Pink Current Information" else \
                              "🔺" if tier_display_name == "Pink Limited Information" else ""
