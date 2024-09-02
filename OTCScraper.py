@@ -189,41 +189,44 @@ async def analyze_report_button(update: Update, context: ContextTypes.DEFAULT_TY
     ticker = query.data.split('_')[-1]
     logger.debug(f"Analyzing report for ticker: {ticker}")
     
-    # Log the entire user_data for debugging
-    logger.debug(f"Current user_data in analyze_report_button: {context.user_data}")
-    
     latest_filing_url = context.user_data.get(f'latest_filing_url_{ticker}', "N/A")
     logger.debug(f"Retrieved latest filing URL for {ticker}: {latest_filing_url}")
     
     if latest_filing_url != "N/A":
         await query.edit_message_text(f"Fetching and analyzing the latest report for {ticker}. This may take a few moments...")
         
-        try:
-            # Fetch the PDF content
-            logger.debug(f"Attempting to fetch PDF from URL: {latest_filing_url}")
-            response = requests.get(latest_filing_url)
-            response.raise_for_status()  # This will raise an exception for 4XX/5XX status codes
-            pdf_content = response.content
-            logger.debug(f"Fetched PDF content for {ticker}, size: {len(pdf_content)} bytes")
-            
-            # Analyze the report using Claude
-            logger.debug("Calling analyze_with_claude function")
-            analysis = await analyze_with_claude(ticker, pdf_content)
-            logger.debug("Received analysis from Claude")
-            
-            # Send the analysis to the user
-            await context.bot.send_message(chat_id=update.effective_chat.id, text=analysis, parse_mode=ParseMode.HTML)
-            logger.debug("Sent analysis to user")
-        except requests.RequestException as e:
-            logger.error(f"Error fetching PDF for {ticker}: {str(e)}")
-            await context.bot.send_message(chat_id=update.effective_chat.id, text=f"An error occurred while fetching the report for {ticker}. Please try again later.")
-        except Exception as e:
-            logger.error(f"Error analyzing report for {ticker}: {str(e)}")
-            await context.bot.send_message(chat_id=update.effective_chat.id, text=f"An error occurred while analyzing the report for {ticker}. Please try again later.")
+        # Start the analysis in a separate task
+        context.application.create_task(perform_analysis(update, context, ticker, latest_filing_url))
+        
+        await query.edit_message_text(f"Analysis for {ticker} has started. You will be notified when it's complete.")
     else:
         error_message = f"Sorry, no latest filing URL available for {ticker}. Please fetch the ticker info again using /info {ticker}"
         logger.error(error_message)
         await query.edit_message_text(error_message)
+
+async def perform_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE, ticker: str, latest_filing_url: str):
+    try:
+        # Fetch the PDF content
+        logger.debug(f"Attempting to fetch PDF from URL: {latest_filing_url}")
+        response = await context.application.session.get(latest_filing_url)
+        response.raise_for_status()
+        pdf_content = await response.read()
+        logger.debug(f"Fetched PDF content for {ticker}, size: {len(pdf_content)} bytes")
+        
+        # Analyze the report using Claude
+        logger.debug("Calling analyze_with_claude function")
+        analysis = await analyze_with_claude(ticker, pdf_content)
+        logger.debug("Received analysis from Claude")
+        
+        # Send the analysis to the user
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=analysis, parse_mode=ParseMode.HTML)
+        logger.debug("Sent analysis to user")
+    except Exception as e:
+        logger.error(f"Error analyzing report for {ticker}: {str(e)}")
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=f"An error occurred while analyzing the report for {ticker}. Please try again later."
+        )
 
 async def analyze_with_claude(ticker, pdf_content):
     logger.debug(f"Starting analysis with Claude for ticker: {ticker}")
@@ -241,45 +244,45 @@ async def analyze_with_claude(ticker, pdf_content):
     
     try:
         logger.debug("Sending initial prompt to Claude")
-        # Initial analysis
-        response = anthropic.messages.create(
-            model="claude-3-opus-20240229",
-            max_tokens=1000,
-            messages=[
-                {"role": "human", "content": initial_prompt},
-                {"role": "human", "content": [
-                    {
-                        "type": "image",
-                        "source": {
-                            "type": "base64",
-                            "media_type": "application/pdf",
-                            "data": base64.b64encode(pdf_content).decode('utf-8')
-                        }
-                    }
-                ]}
-            ]
-        )
-        logger.debug("Received initial response from Claude")
-        
-        # Ask each question separately
-        for question in questions:
-            logger.debug(f"Sending question to Claude: {question}")
-            response = anthropic.messages.create(
+        async with AsyncAnthropic() as client:
+            # Initial analysis
+            response = await client.messages.create(
                 model="claude-3-opus-20240229",
                 max_tokens=1000,
                 messages=[
-                    {"role": "human", "content": question}
+                    {"role": "human", "content": initial_prompt},
+                    {"role": "human", "content": [
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": "application/pdf",
+                                "data": base64.b64encode(pdf_content).decode('utf-8')
+                            }
+                        }
+                    ]}
                 ]
             )
-            logger.debug("Received response from Claude for question")
-            analysis += f"Q: {question}\nA: {response.content}\n\n"
+            logger.debug("Received initial response from Claude")
+            
+            # Ask each question separately
+            for question in questions:
+                logger.debug(f"Sending question to Claude: {question}")
+                response = await client.messages.create(
+                    model="claude-3-opus-20240229",
+                    max_tokens=1000,
+                    messages=[
+                        {"role": "human", "content": question}
+                    ]
+                )
+                logger.debug("Received response from Claude for question")
+                analysis += f"Q: {question}\nA: {response.content}\n\n"
         
         logger.debug("Completed analysis with Claude")
         return analysis
     except Exception as e:
         logger.error(f"Error calling Claude API: {str(e)}")
         return "An error occurred while analyzing the report with Claude."
-
 
 async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     global ticker_data
