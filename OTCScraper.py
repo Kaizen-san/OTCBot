@@ -30,6 +30,9 @@ application = Application.builder().token(TELEGRAM_TOKEN).request(request).build
 GOOGLE_APPLICATION_CREDENTIALS = Config.GOOGLE_APPLICATION_CREDENTIALS
 WATCHLIST_SHEET_ID = Config.WATCHLIST_SHEET_ID
 
+#Claude API
+anthropic = Anthropic(api_key=Config.ANTHROPIC_API_KEY)
+
 scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
 creds = Credentials.from_service_account_file(GOOGLE_APPLICATION_CREDENTIALS, scopes=scope)
 client = gspread.authorize(creds)
@@ -177,6 +180,82 @@ async def add_to_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     except Exception as e:
         logger.error(f"Error adding {ticker} to watchlist: {str(e)}")
         await query.edit_message_text(f"An error occurred while adding {ticker} to the watchlist. Please try again later.")
+
+async def analyze_report(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+    
+    ticker = query.data.split('_')[-1]
+    latest_filing_url = context.user_data.get('latest_filing_url', "N/A")
+    
+    if latest_filing_url != "N/A":
+        await query.edit_message_text(f"Fetching and analyzing the latest report for {ticker}. This may take a moment...")
+        
+        try:
+            # Fetch the PDF content
+            response = requests.get(latest_filing_url)
+            pdf_content = response.content
+            
+            # Analyze the report using Claude
+            analysis = await analyze_with_claude(ticker, pdf_content)
+            
+            # Send the analysis to the user
+            await context.bot.send_message(chat_id=update.effective_chat.id, text=analysis, parse_mode=ParseMode.HTML)
+        except Exception as e:
+            logger.error(f"Error analyzing report: {str(e)}")
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="An error occurred while analyzing the report. Please try again later.")
+    else:
+        await query.edit_message_text(f"Sorry, no latest filing URL available for {ticker}.")
+
+async def analyze_with_claude(ticker, pdf_content):
+    questions = [
+        f"What is the total revenue reported for {ticker} in this quarter?",
+        f"Has there been an increase or decrease in net income for {ticker} compared to the previous quarter?",
+        f"What are the main factors contributing to {ticker}'s performance this quarter?",
+        f"Are there any significant changes in {ticker}'s financial position?",
+        f"What is {ticker}'s outlook for the next quarter?"
+    ]
+    
+    analysis = f"Analysis of {ticker}'s Quarterly Report:\n\n"
+    
+    initial_prompt = f"Human: I'm sending you a PDF of the latest quarterly report for {ticker}. Please analyze this report thoroughly. I will ask you specific questions about it afterwards."
+    
+    try:
+        # Initial analysis
+        response = anthropic.messages.create(
+            model="claude-3-opus-20240229",
+            max_tokens=1000,
+            messages=[
+                {"role": "human", "content": initial_prompt},
+                {"role": "human", "content": [
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": "application/pdf",
+                            "data": pdf_content.encode("base64").decode("utf-8")
+                        }
+                    }
+                ]}
+            ]
+        )
+        
+        # Ask each question separately
+        for question in questions:
+            response = anthropic.messages.create(
+                model="claude-3-opus-20240229",
+                max_tokens=1000,
+                messages=[
+                    {"role": "human", "content": question}
+                ]
+            )
+            analysis += f"Q: {question}\nA: {response.content}\n\n"
+        
+        return analysis
+    except Exception as e:
+        logger.error(f"Error calling Claude API: {str(e)}")
+        return "An error occurred while analyzing the report with Claude."
+
 
 async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     global ticker_data
