@@ -186,42 +186,12 @@ async def add_to_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         logger.error(f"Error adding {ticker} to watchlist: {str(e)}")
         await query.edit_message_text(f"An error occurred while adding {ticker} to the watchlist. Please try again later.")
 
-async def analyze_report_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    await query.answer()
-    
-    ticker = query.data.split('_')[-1]
-    logger.debug(f"Analyzing report for ticker: {ticker}")
-    
-    latest_filing_url = context.user_data.get(f'latest_filing_url_{ticker}', "N/A")
-    logger.debug(f"Retrieved latest filing URL for {ticker}: {latest_filing_url}")
-    
-    if latest_filing_url != "N/A":
-        await query.edit_message_text(f"Fetching and analyzing the latest report for {ticker}. This may take a few moments...")
-        
-        try:
-            # Perform the analysis
-            await perform_analysis(update, context, ticker, latest_filing_url)
-        except Exception as e:
-            logger.error(f"Error during analysis for {ticker}: {str(e)}", exc_info=True)
-            await context.bot.send_message(
-                chat_id=update.effective_chat.id,
-                text=f"An error occurred during the analysis for {ticker}. Please try again later."
-            )
-
-        await query.edit_message_text(f"Analysis for {ticker} has started. You will be notified when it's complete.")
-    else:
-        error_message = f"Sorry, no latest filing URL available for {ticker}. Please fetch the ticker info again using /info {ticker}"
-        logger.error(error_message)
-        await query.edit_message_text(error_message)
-
 async def perform_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE, ticker: str, latest_filing_url: str):
     logger.info(f"Starting analysis for {ticker}")
     try:
-        # We're not using the PDF content for this test, so we'll pass a placeholder
         logger.debug("Calling simplified analyze_with_claude function")
         analysis = await analyze_with_claude(ticker, "placeholder")
-        logger.debug("Received test response from Claude")
+        logger.debug(f"Received test response from Claude: {analysis}")
         
         # Send the analysis to the user
         await context.bot.send_message(chat_id=update.effective_chat.id, text=analysis, parse_mode=ParseMode.HTML)
@@ -230,6 +200,34 @@ async def perform_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE, t
         logger.error(f"Error in test analysis for {ticker}: {str(e)}", exc_info=True)
         error_message = f"An error occurred while performing the test analysis for {ticker}: {str(e)}"
         await context.bot.send_message(chat_id=update.effective_chat.id, text=error_message)
+
+        await query.edit_message_text(f"Analysis for {ticker} has started. You will be notified when it's complete.")
+    else:
+        error_message = f"Sorry, no latest filing URL available for {ticker}. Please fetch the ticker info again using /info {ticker}"
+        logger.error(error_message)
+        await query.edit_message_text(error_message)
+
+async def analyze_with_claude(ticker, pdf_content):
+    logger.debug(f"Starting simple test with Claude for ticker: {ticker}")
+    
+    test_prompt = f"This is a test call for ticker {ticker}. Please respond with a simple confirmation message."
+    
+    try:
+        logger.debug("Sending test prompt to Claude")
+        async with AsyncAnthropic() as client:
+            response = await client.messages.create(
+                model="claude-3-opus-20240229",
+                max_tokens=100,
+                messages=[
+                    {"role": "user", "content": test_prompt}
+                ]
+            )
+        
+        logger.debug("Received response from Claude")
+        return f"Claude API Test Result for {ticker}:\n\n{response.content}"
+    except Exception as e:
+        logger.error(f"Error calling Claude API: {str(e)}", exc_info=True)
+        return f"An error occurred while testing the Claude API: {str(e)}"
 
 async def analyze_with_claude(ticker, pdf_content):
     logger.debug(f"Starting simple test with Claude for ticker: {ticker}")
