@@ -189,7 +189,7 @@ async def analyze_report_button(update: Update, context: ContextTypes.DEFAULT_TY
     logger.debug(f"Analyzing report for ticker: {ticker}")
     # Log the entire user_data for debugging
     logger.debug(f"Current user_data in analyze_report_button: {context.user_data}")
-    latest_filing_url = context.user_data.get('latest_filing_url', "N/A")
+    latest_filing_url = context.user_data.get(f'latest_filing_url_{ticker}', "N/A")
     logger.debug(f"Retrieved latest filing URL for {ticker}: {latest_filing_url}")
     
     if latest_filing_url != "N/A":
