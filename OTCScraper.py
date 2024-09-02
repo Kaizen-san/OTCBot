@@ -72,9 +72,40 @@ def custom_escape_html(text):
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.debug("Received /start command")
+    keyboard = [
+        [InlineKeyboardButton("View Watchlist", callback_data="view_watchlist")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
-        "Hello! Send me a ticker symbol to get the stock information.\nUse /info <TICKER> to get the stock info."
+        "Hello! Send me a ticker symbol to get the stock information.\n"
+        "Use /info <TICKER> to get the stock info.\n"
+        "Or click the button below to view your watchlist.",
+        reply_markup=reply_markup
     )
+async def get_watchlist(user_id):
+    try:
+        # Find all rows where the user_id matches
+        cell_list = sheet.findall(str(user_id), in_column=2)
+        watchlist = [sheet.cell(cell.row, 1).value for cell in cell_list]
+        return watchlist
+    except Exception as e:
+        logger.error(f"Error fetching watchlist: {str(e)}")
+        return []
+
+async def view_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+
+    user_id = update.effective_user.id
+    watchlist = await get_watchlist(user_id)
+
+    if watchlist:
+        watchlist_text = "Your current watchlist:\n" + "\n".join([f"${ticker}" for ticker in watchlist])
+    else:
+        watchlist_text = "Your watchlist is empty."
+
+    await query.edit_message_text(watchlist_text)
+
 
 async def add_to_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     global ticker_data
@@ -373,6 +404,7 @@ def main() -> None:
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("info", info))
     application.add_handler(CallbackQueryHandler(add_to_watchlist, pattern="^add_watchlist_"))
+    application.add_handler(CallbackQueryHandler(view_watchlist, pattern="^view_watchlist$"))
 
     application.run_polling(poll_interval=1.0)  # Increase polling interval
 
