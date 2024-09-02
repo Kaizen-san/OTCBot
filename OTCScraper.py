@@ -17,6 +17,8 @@ from anthropic import Anthropic, HUMAN_PROMPT, AI_PROMPT, AsyncAnthropic
 import base64
 import aiohttp
 from aiohttp import ClientTimeout
+from requests.exceptions import RequestException, Timeout
+
 
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
@@ -220,9 +222,16 @@ async def perform_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE, t
         logger.debug(f"Attempting to fetch PDF from URL: {latest_filing_url}")
         
         def download_pdf():
-            response = requests.get(latest_filing_url, timeout=60)
-            response.raise_for_status()
-            return response.content
+            try:
+                response = requests.get(latest_filing_url, timeout=(10, 60))  # 10 seconds for connection, 60 for read
+                response.raise_for_status()
+                return response.content
+            except Timeout:
+                logger.error(f"Timeout while fetching PDF for {ticker}")
+                raise Exception(f"Timeout while fetching the PDF for {ticker}. The server might be slow or unresponsive.")
+            except RequestException as e:
+                logger.error(f"Error fetching PDF for {ticker}: {str(e)}")
+                raise
 
         # Run the synchronous request in a separate thread
         pdf_content = await asyncio.to_thread(download_pdf)
@@ -237,10 +246,6 @@ async def perform_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE, t
         # Send the analysis to the user
         await context.bot.send_message(chat_id=update.effective_chat.id, text=analysis, parse_mode=ParseMode.HTML)
         logger.info(f"Sent analysis for {ticker} to user")
-    except RequestException as e:
-        logger.error(f"Error fetching PDF for {ticker}: {str(e)}", exc_info=True)
-        error_message = f"An error occurred while fetching the PDF for {ticker}: {str(e)}"
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=error_message)
     except Exception as e:
         logger.error(f"Error analyzing report for {ticker}: {str(e)}", exc_info=True)
         error_message = f"An error occurred while analyzing the report for {ticker}: {str(e)}"
