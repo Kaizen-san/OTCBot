@@ -383,6 +383,9 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if latest_filing_url and latest_filing_url != "N/A":
             latest_filing_url = get_full_filing_url(latest_filing_url)
 
+         # Store the latest filing URL in user_data
+        context.user_data[f'latest_filing_url_{ticker}'] = latest_filing_url
+
         previous_close_price = parsed_trade.get("previousClose", "N/A") if parsed_trade else "N/A"
 
         business_desc = parsed_profile.get("businessDesc", "N/A")
