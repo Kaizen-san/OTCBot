@@ -13,8 +13,9 @@ import asyncio
 from telegram.error import TimedOut, NetworkError
 import json
 import time
-from anthropic import Anthropic, HUMAN_PROMPT, AI_PROMPT
+from anthropic import Anthropic, HUMAN_PROMPT, AI_PROMPT, AsyncAnthropic
 import base64
+import aiohttp
 
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
@@ -196,8 +197,8 @@ async def analyze_report_button(update: Update, context: ContextTypes.DEFAULT_TY
         await query.edit_message_text(f"Fetching and analyzing the latest report for {ticker}. This may take a few moments...")
         
         # Start the analysis in a separate task
-        context.application.create_task(perform_analysis(update, context, ticker, latest_filing_url))
-        
+        asyncio.create_task(perform_analysis(update, context, ticker, latest_filing_url))
+
         await query.edit_message_text(f"Analysis for {ticker} has started. You will be notified when it's complete.")
     else:
         error_message = f"Sorry, no latest filing URL available for {ticker}. Please fetch the ticker info again using /info {ticker}"
@@ -208,9 +209,10 @@ async def perform_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE, t
     try:
         # Fetch the PDF content
         logger.debug(f"Attempting to fetch PDF from URL: {latest_filing_url}")
-        response = await context.application.session.get(latest_filing_url)
-        response.raise_for_status()
-        pdf_content = await response.read()
+        async with aiohttp.ClientSession() as session:
+            async with session.get(latest_filing_url) as response:
+                response.raise_for_status()
+                pdf_content = await response.read()
         logger.debug(f"Fetched PDF content for {ticker}, size: {len(pdf_content)} bytes")
         
         # Analyze the report using Claude
@@ -221,6 +223,12 @@ async def perform_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE, t
         # Send the analysis to the user
         await context.bot.send_message(chat_id=update.effective_chat.id, text=analysis, parse_mode=ParseMode.HTML)
         logger.debug("Sent analysis to user")
+    except aiohttp.ClientError as e:
+        logger.error(f"Error fetching PDF for {ticker}: {str(e)}")
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=f"An error occurred while fetching the report for {ticker}. Please try again later."
+        )
     except Exception as e:
         logger.error(f"Error analyzing report for {ticker}: {str(e)}")
         await context.bot.send_message(
