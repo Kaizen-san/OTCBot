@@ -15,7 +15,7 @@ import json
 import time
 from anthropic import Anthropic, HUMAN_PROMPT, AI_PROMPT, AsyncAnthropic
 import base64
-import aiohttp import ClientTimeout
+from aiohttp import ClientTimeout
 
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
