@@ -186,7 +186,11 @@ async def analyze_report_button(update: Update, context: ContextTypes.DEFAULT_TY
     await query.answer()
     
     ticker = query.data.split('_')[-1]
+    logger.debug(f"Analyzing report for ticker: {ticker}")
+    # Log the entire user_data for debugging
+    logger.debug(f"Current user_data in analyze_report_button: {context.user_data}")
     latest_filing_url = context.user_data.get('latest_filing_url', "N/A")
+    logger.debug(f"Retrieved latest filing URL for {ticker}: {latest_filing_url}")
     
     if latest_filing_url != "N/A":
         await query.edit_message_text(f"Fetching and analyzing the latest report for {ticker}. This may take a few moments...")
@@ -195,6 +199,7 @@ async def analyze_report_button(update: Update, context: ContextTypes.DEFAULT_TY
             # Fetch the PDF content
             response = requests.get(latest_filing_url)
             pdf_content = response.content
+            logger.debug(f"Fetched PDF content for {ticker}, size: {len(pdf_content)} bytes")
             
             # Analyze the report using Claude
             analysis = await analyze_with_claude(ticker, pdf_content)
@@ -205,7 +210,9 @@ async def analyze_report_button(update: Update, context: ContextTypes.DEFAULT_TY
             logger.error(f"Error analyzing report: {str(e)}")
             await context.bot.send_message(chat_id=update.effective_chat.id, text="An error occurred while analyzing the report. Please try again later.")
     else:
-        await query.edit_message_text(f"Sorry, no latest filing URL available for {ticker}.")
+        error_message = f"Sorry, no latest filing URL available for {ticker}. Please fetch the ticker info again using /info {ticker}"
+        logger.error(error_message)
+        await query.edit_message_text(error_message)
 
 async def analyze_with_claude(ticker, pdf_content):
     questions = [
@@ -380,11 +387,14 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         latest_filing_type = parsed_profile.get("latestFilingType", "N/A")
         latest_filing_date = convert_timestamp(parsed_profile.get("latestFilingDate", "N/A"))
         latest_filing_url = parsed_profile.get("latestFilingUrl", "N/A")
+        logger.debug(f"Raw latest filing URL for {ticker}: {latest_filing_url}")
         if latest_filing_url and latest_filing_url != "N/A":
             latest_filing_url = get_full_filing_url(latest_filing_url)
+            logger.debug(f"Full latest filing URL for {ticker}: {latest_filing_url}")
 
          # Store the latest filing URL in user_data
         context.user_data[f'latest_filing_url_{ticker}'] = latest_filing_url
+        logger.debug(f"Stored latest filing URL for {ticker} in user_data: {latest_filing_url}")
 
         previous_close_price = parsed_trade.get("previousClose", "N/A") if parsed_trade else "N/A"
 
