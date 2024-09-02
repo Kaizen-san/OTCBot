@@ -216,27 +216,18 @@ async def analyze_report_button(update: Update, context: ContextTypes.DEFAULT_TY
 async def perform_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE, ticker: str, latest_filing_url: str):
     logger.info(f"Starting analysis for {ticker}")
     try:
-        # Fetch the PDF content
+        # Fetch the PDF content using requests
         logger.debug(f"Attempting to fetch PDF from URL: {latest_filing_url}")
-        timeout = ClientTimeout(total=60, connect=30)  # 60 seconds total, 30 seconds for connection
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            try:
-                logger.debug("Initiating GET request")
-                async with session.get(latest_filing_url) as response:
-                    logger.debug(f"GET request completed with status: {response.status}")
-                    response.raise_for_status()
-                    logger.debug("Starting to read content")
-                    pdf_content = await response.read()
-                    logger.debug(f"Fetched PDF content for {ticker}, size: {len(pdf_content)} bytes")
-            except asyncio.TimeoutError:
-                logger.error(f"Timeout error while fetching PDF for {ticker}")
-                raise Exception(f"Timeout while fetching the PDF for {ticker}. The server might be slow or unresponsive.")
-            except aiohttp.ClientResponseError as e:
-                logger.error(f"HTTP error {e.status} while fetching PDF for {ticker}: {e.message}")
-                raise
-            except Exception as e:
-                logger.error(f"Unexpected error while fetching PDF for {ticker}: {str(e)}")
-                raise
+        
+        def download_pdf():
+            response = requests.get(latest_filing_url, timeout=60)
+            response.raise_for_status()
+            return response.content
+
+        # Run the synchronous request in a separate thread
+        pdf_content = await asyncio.to_thread(download_pdf)
+        
+        logger.debug(f"Fetched PDF content for {ticker}, size: {len(pdf_content)} bytes")
         
         # Analyze the report using Claude
         logger.debug("Calling analyze_with_claude function")
@@ -246,13 +237,14 @@ async def perform_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE, t
         # Send the analysis to the user
         await context.bot.send_message(chat_id=update.effective_chat.id, text=analysis, parse_mode=ParseMode.HTML)
         logger.info(f"Sent analysis for {ticker} to user")
+    except RequestException as e:
+        logger.error(f"Error fetching PDF for {ticker}: {str(e)}", exc_info=True)
+        error_message = f"An error occurred while fetching the PDF for {ticker}: {str(e)}"
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=error_message)
     except Exception as e:
         logger.error(f"Error analyzing report for {ticker}: {str(e)}", exc_info=True)
         error_message = f"An error occurred while analyzing the report for {ticker}: {str(e)}"
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text=error_message
-        )
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=error_message)
 
 async def analyze_with_claude(ticker, pdf_content):
     logger.debug(f"Starting analysis with Claude for ticker: {ticker}")
