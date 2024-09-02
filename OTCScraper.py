@@ -14,6 +14,7 @@ from telegram.error import TimedOut, NetworkError
 import json
 import time
 from anthropic import Anthropic, HUMAN_PROMPT, AI_PROMPT
+import base64
 
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
@@ -187,8 +188,10 @@ async def analyze_report_button(update: Update, context: ContextTypes.DEFAULT_TY
     
     ticker = query.data.split('_')[-1]
     logger.debug(f"Analyzing report for ticker: {ticker}")
+    
     # Log the entire user_data for debugging
     logger.debug(f"Current user_data in analyze_report_button: {context.user_data}")
+    
     latest_filing_url = context.user_data.get(f'latest_filing_url_{ticker}', "N/A")
     logger.debug(f"Retrieved latest filing URL for {ticker}: {latest_filing_url}")
     
@@ -197,24 +200,33 @@ async def analyze_report_button(update: Update, context: ContextTypes.DEFAULT_TY
         
         try:
             # Fetch the PDF content
+            logger.debug(f"Attempting to fetch PDF from URL: {latest_filing_url}")
             response = requests.get(latest_filing_url)
+            response.raise_for_status()  # This will raise an exception for 4XX/5XX status codes
             pdf_content = response.content
             logger.debug(f"Fetched PDF content for {ticker}, size: {len(pdf_content)} bytes")
             
             # Analyze the report using Claude
+            logger.debug("Calling analyze_with_claude function")
             analysis = await analyze_with_claude(ticker, pdf_content)
+            logger.debug("Received analysis from Claude")
             
             # Send the analysis to the user
             await context.bot.send_message(chat_id=update.effective_chat.id, text=analysis, parse_mode=ParseMode.HTML)
+            logger.debug("Sent analysis to user")
+        except requests.RequestException as e:
+            logger.error(f"Error fetching PDF for {ticker}: {str(e)}")
+            await context.bot.send_message(chat_id=update.effective_chat.id, text=f"An error occurred while fetching the report for {ticker}. Please try again later.")
         except Exception as e:
-            logger.error(f"Error analyzing report: {str(e)}")
-            await context.bot.send_message(chat_id=update.effective_chat.id, text="An error occurred while analyzing the report. Please try again later.")
+            logger.error(f"Error analyzing report for {ticker}: {str(e)}")
+            await context.bot.send_message(chat_id=update.effective_chat.id, text=f"An error occurred while analyzing the report for {ticker}. Please try again later.")
     else:
         error_message = f"Sorry, no latest filing URL available for {ticker}. Please fetch the ticker info again using /info {ticker}"
         logger.error(error_message)
         await query.edit_message_text(error_message)
 
 async def analyze_with_claude(ticker, pdf_content):
+    logger.debug(f"Starting analysis with Claude for ticker: {ticker}")
     questions = [
         f"What is the total revenue reported for {ticker} in this quarter?",
         f"Has there been an increase or decrease in net income for {ticker} compared to the previous quarter?",
@@ -228,6 +240,7 @@ async def analyze_with_claude(ticker, pdf_content):
     initial_prompt = f"Human: I'm sending you a PDF of the latest quarterly report for {ticker}. Please analyze this report thoroughly. I will ask you specific questions about it afterwards."
     
     try:
+        logger.debug("Sending initial prompt to Claude")
         # Initial analysis
         response = anthropic.messages.create(
             model="claude-3-opus-20240229",
@@ -240,15 +253,17 @@ async def analyze_with_claude(ticker, pdf_content):
                         "source": {
                             "type": "base64",
                             "media_type": "application/pdf",
-                            "data": pdf_content.encode("base64").decode("utf-8")
+                            "data": base64.b64encode(pdf_content).decode('utf-8')
                         }
                     }
                 ]}
             ]
         )
+        logger.debug("Received initial response from Claude")
         
         # Ask each question separately
         for question in questions:
+            logger.debug(f"Sending question to Claude: {question}")
             response = anthropic.messages.create(
                 model="claude-3-opus-20240229",
                 max_tokens=1000,
@@ -256,8 +271,10 @@ async def analyze_with_claude(ticker, pdf_content):
                     {"role": "human", "content": question}
                 ]
             )
+            logger.debug("Received response from Claude for question")
             analysis += f"Q: {question}\nA: {response.content}\n\n"
         
+        logger.debug("Completed analysis with Claude")
         return analysis
     except Exception as e:
         logger.error(f"Error calling Claude API: {str(e)}")
