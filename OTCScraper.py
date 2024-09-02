@@ -13,6 +13,7 @@ import asyncio
 from telegram.error import TimedOut, NetworkError
 import json
 import time
+from anthropic import Anthropic, HUMAN_PROMPT, AI_PROMPT
 
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
