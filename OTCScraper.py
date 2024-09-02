@@ -181,7 +181,7 @@ async def add_to_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         logger.error(f"Error adding {ticker} to watchlist: {str(e)}")
         await query.edit_message_text(f"An error occurred while adding {ticker} to the watchlist. Please try again later.")
 
-async def analyze_report(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def analyze_report_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
     
@@ -189,7 +189,7 @@ async def analyze_report(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     latest_filing_url = context.user_data.get('latest_filing_url', "N/A")
     
     if latest_filing_url != "N/A":
-        await query.edit_message_text(f"Fetching and analyzing the latest report for {ticker}. This may take a moment...")
+        await query.edit_message_text(f"Fetching and analyzing the latest report for {ticker}. This may take a few moments...")
         
         try:
             # Fetch the PDF content
@@ -396,6 +396,9 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             ],
             [
                 InlineKeyboardButton("➕ Add to Watchlist", callback_data=f"add_watchlist_{ticker}")
+            ],
+            [
+                InlineKeyboardButton("📊 Analyze Latest Report", callback_data=f"analyze_report_{ticker}")
             ]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -485,6 +488,8 @@ def main() -> None:
     application.add_handler(CommandHandler("info", info))
     application.add_handler(CallbackQueryHandler(add_to_watchlist, pattern="^add_watchlist_"))
     application.add_handler(CallbackQueryHandler(view_watchlist, pattern="^view_watchlist$"))
+    application.add_handler(CallbackQueryHandler(analyze_report_button, pattern="^analyze_report_"))
+
 
     application.run_polling(poll_interval=1.0)  # Increase polling interval
 
