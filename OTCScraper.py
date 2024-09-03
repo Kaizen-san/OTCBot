@@ -16,11 +16,11 @@ import time
 from anthropic import Anthropic, HUMAN_PROMPT, AI_PROMPT, AsyncAnthropic
 import base64
 import aiohttp
-from aiohttp import ClientTimeout
+from aiohttp import ClientTimeout, ClientResponseError, ClientConnectorError
 import io
 from io import BytesIO
 import PyPDF2
-import fitz
+
 
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
@@ -216,36 +216,27 @@ async def analyze_report_button(update: Update, context: ContextTypes.DEFAULT_TY
 
 async def perform_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE, ticker: str, latest_filing_url: str):
     logger.info(f"Starting analysis for {ticker}")
-    max_retries = 3
-    retry_delay = 2
+    max_retries = 5
+    retry_delay = 4
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    }
 
     for attempt in range(max_retries):
         try:
-            # Fetch the content
-            logger.debug(f"Attempt {attempt + 1} to fetch content from URL: {latest_filing_url}")
-            timeout = ClientTimeout(total=60, connect=10, sock_read=30)
-            headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-            }
+            timeout = ClientTimeout(total=120, connect=30, sock_read=60)
             async with aiohttp.ClientSession(timeout=timeout) as session:
+                logger.debug(f"Attempt {attempt + 1} to fetch content from URL: {latest_filing_url}")
                 async with session.get(latest_filing_url, headers=headers) as response:
-                    if response.status != 200:
-                        raise Exception(f"Failed to fetch content. Status code: {response.status}")
-                    
+                    response.raise_for_status()  # This will raise ClientResponseError for bad HTTP status codes
+                    content = await response.read()
                     content_type = response.headers.get('Content-Type', '')
-                    logger.debug(f"Content-Type: {content_type}")
-                    
-                    # Stream the content
-                    content = io.BytesIO(await response.read())
-                    
-            content.seek(0)
-            logger.debug(f"Fetched content for {ticker}, size: {content.getbuffer().nbytes} bytes")
+
+            logger.debug(f"Fetched content for {ticker}, size: {len(content)} bytes, Content-Type: {content_type}")
             
-            # Extract text based on content type
-            if 'pdf' in content_type.lower():
-                text = extract_text_from_pdf(content)
-            else:
-                text = extract_text_from_document(content)
+            # Extract text (assuming it's always PDF for simplicity)
+            text = extract_text_from_pdf(io.BytesIO(content))
             
             if not text:
                 raise Exception("Failed to extract text from document")
@@ -259,31 +250,22 @@ async def perform_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE, t
             await context.bot.send_message(chat_id=update.effective_chat.id, text=analysis, parse_mode=ParseMode.HTML)
             logger.info(f"Sent analysis for {ticker} to user")
             return  # Success, exit the function
-        
+
         except asyncio.TimeoutError:
             logger.warning(f"Timeout error on attempt {attempt + 1} for {ticker}")
-            if attempt < max_retries - 1:
-                await asyncio.sleep(retry_delay)
-            else:
-                error_message = f"Timeout error occurred while fetching the report for {ticker} after {max_retries} attempts. The server might be slow or the file might be too large."
-                await context.bot.send_message(chat_id=update.effective_chat.id, text=error_message)
-                return
-        except aiohttp.ClientError as e:
-            logger.warning(f"Network error on attempt {attempt + 1} for {ticker}: {str(e)}")
-            if attempt < max_retries - 1:
-                await asyncio.sleep(retry_delay)
-            else:
-                error_message = f"Network error occurred while fetching the report for {ticker} after {max_retries} attempts: {str(e)}"
-                await context.bot.send_message(chat_id=update.effective_chat.id, text=error_message)
-                return
+        except ClientResponseError as e:
+            logger.warning(f"HTTP error on attempt {attempt + 1} for {ticker}: {e.status} {e.message}")
+        except ClientConnectorError as e:
+            logger.warning(f"Connection error on attempt {attempt + 1} for {ticker}: {str(e)}")
         except Exception as e:
             logger.error(f"Error in analysis for {ticker} on attempt {attempt + 1}: {str(e)}", exc_info=True)
-            if attempt < max_retries - 1:
-                await asyncio.sleep(retry_delay)
-            else:
-                error_message = f"An error occurred while analyzing the report for {ticker} after {max_retries} attempts: {str(e)}"
-                await context.bot.send_message(chat_id=update.effective_chat.id, text=error_message)
-                return
+        
+        if attempt < max_retries - 1:
+            await asyncio.sleep(retry_delay * (attempt + 1))  # Exponential backoff
+        else:
+            error_message = f"Failed to analyze the report for {ticker} after {max_retries} attempts."
+            await context.bot.send_message(chat_id=update.effective_chat.id, text=error_message)
+
 
 def extract_text_from_pdf(pdf_content):
     try:
@@ -297,20 +279,6 @@ def extract_text_from_pdf(pdf_content):
         return text
     except Exception as e:
         logger.error(f"Error extracting text from PDF: {e}")
-        return None
-
-def extract_text_from_document(content):
-    try:
-        doc = fitz.open(stream=content.getvalue(), filetype="pdf")
-        text = ""
-        for page in doc:
-            text += page.get_text()
-        if not text.strip():
-            logger.warning("Extracted text is empty")
-            return None
-        return text
-    except Exception as e:
-        logger.error(f"Error extracting text from document: {e}")
         return None
 
 async def analyze_with_claude(ticker, text_content):
