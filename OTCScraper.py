@@ -17,6 +17,8 @@ from anthropic import Anthropic, HUMAN_PROMPT, AI_PROMPT, AsyncAnthropic
 import base64
 import aiohttp
 from aiohttp import ClientTimeout
+from io import BytesIO
+import PyPDF2
 
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
@@ -198,7 +200,6 @@ async def analyze_report_button(update: Update, context: ContextTypes.DEFAULT_TY
         await query.edit_message_text(f"Fetching and analyzing the latest report for {ticker}. This may take a few moments...")
         
         try:
-            # Perform the analysis
             await perform_analysis(update, context, ticker, latest_filing_url)
         except Exception as e:
             logger.error(f"Error during analysis for {ticker}: {str(e)}", exc_info=True)
@@ -224,9 +225,12 @@ async def perform_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE, t
         
         logger.debug(f"Fetched PDF content for {ticker}, size: {len(pdf_content)} bytes")
         
+        # Extract text from PDF
+        pdf_text = extract_text_from_pdf(BytesIO(pdf_content))
+        
         # Analyze the report using Claude
         logger.debug("Calling analyze_with_claude function")
-        analysis = await analyze_with_claude(ticker, pdf_content)
+        analysis = await analyze_with_claude(ticker, pdf_text)
         logger.debug("Received analysis from Claude")
         
         # Send the analysis to the user
@@ -237,63 +241,64 @@ async def perform_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE, t
         error_message = f"An error occurred while analyzing the report for {ticker}: {str(e)}"
         await context.bot.send_message(chat_id=update.effective_chat.id, text=error_message)
 
-async def analyze_with_claude(ticker, pdf_content):
+def extract_text_from_pdf(file_object):
+    try:
+        reader = PyPDF2.PdfReader(file_object)
+        text = ""
+        for page in reader.pages:
+            text += page.extract_text()
+        return text
+    except Exception as e:
+        logger.error(f"Error extracting text from PDF: {e}")
+        return None
+
+async def analyze_with_claude(ticker, text_content):
     logger.debug(f"Starting analysis with Claude for ticker: {ticker}")
     questions = [
-        f"What is the total revenue reported for {ticker} in this quarter?",
-        f"Has there been an increase or decrease in net income for {ticker} compared to the previous quarter?",
-        f"What are the main factors contributing to {ticker}'s performance this quarter?",
-        f"Are there any significant changes in {ticker}'s financial position?",
-        f"What is {ticker}'s outlook for the next quarter?"
+        "In what industry is it? (Block chain, real estate, mining, etc..)",
+        "Is it a shell company? If yes, what are the plans for this shell?",
+        "What is the amount of the convertible notes the company has? (in $)",
+        "When are the convertible notes due? Please elaborate on each convertible note mentioned in the document, including its due date",
+        "Is there shares dilution between the quarters? (if mentioned)",
+        "Did they settle them (the convertible notes) or do they have plans to settle or do something with it?",
+        "Are there any future plans for the business?",
+        "Are there any upcoming material events disclosed or hinted at in the document, such as potential acquisitions, mergers, or significant changes in the share structure?",
+        "Are there any plans for reverse split in the future?",
+        "What is the ratio of total assets to market capitalization (total market cap) for the company, based on the information provided in the document?"
     ]
     
-    analysis = f"Analysis of {ticker}'s Quarterly Report:\n\n"
-    
-    initial_prompt = f"I'm sending you a PDF of the latest quarterly report for {ticker}. Please analyze this report thoroughly. I will ask you specific questions about it afterwards."
+    prompt = f"""Analyze the following document thoroughly for {ticker}, including any tables or structured data. Then answer these questions:
+
+{chr(10).join(f"{i+1}. {q}" for i, q in enumerate(questions))}
+
+Document content:
+{text_content[:100000]}  # Limit to first 100,000 characters to avoid token limits
+"""
     
     try:
-        logger.debug("Sending initial prompt and PDF to Claude")
         async with AsyncAnthropic() as client:
-            # Initial analysis
             response = await client.messages.create(
                 model="claude-3-opus-20240229",
-                max_tokens=1000,
+                max_tokens=4000,
                 messages=[
-                    {"role": "user", "content": initial_prompt},
-                    {"role": "user", "content": [
-                        {
-                            "type": "image",
-                            "source": {
-                                "type": "base64",
-                                "media_type": "application/pdf",
-                                "data": base64.b64encode(pdf_content).decode('utf-8')
-                            }
-                        }
-                    ]}
+                    {"role": "user", "content": prompt}
                 ]
             )
-        logger.debug("Received initial response from Claude")
         
-        # Ask each question separately
-        for question in questions:
-            logger.debug(f"Sending question to Claude: {question}")
-            async with AsyncAnthropic() as client:
-                response = await client.messages.create(
-                    model="claude-3-opus-20240229",
-                    max_tokens=1000,
-                    messages=[
-                        {"role": "user", "content": question}
-                    ]
-                )
-            logger.debug("Received response from Claude for question")
-            if isinstance(response.content, list) and response.content and 'text' in response.content[0]:
-                answer = response.content[0]['text']
+        if isinstance(response.content, list) and response.content and 'text' in response.content[0]:
+            analysis = response.content[0]['text']
+        else:
+            analysis = str(response.content)
+        
+        # Format the analysis for better display
+        formatted_analysis = "Here is the analysis for the document:\n\n"
+        for line in analysis.split('\n'):
+            if line.strip().startswith(tuple(str(i) + '.' for i in range(1, 11))):
+                formatted_analysis += f"<b>{line.strip()}</b>\n"
             else:
-                answer = str(response.content)
-            analysis += f"Q: {question}\nA: {answer}\n\n"
+                formatted_analysis += f"{line.strip()}\n"
         
-        logger.debug("Completed analysis with Claude")
-        return analysis
+        return formatted_analysis
     except Exception as e:
         logger.error(f"Error calling Claude API: {str(e)}", exc_info=True)
         return f"An error occurred while analyzing the report with Claude: {str(e)}"
