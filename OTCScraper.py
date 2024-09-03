@@ -17,6 +17,7 @@ from anthropic import Anthropic, HUMAN_PROMPT, AI_PROMPT, AsyncAnthropic
 import base64
 import aiohttp
 from aiohttp import ClientTimeout
+import io
 from io import BytesIO
 import PyPDF2
 
@@ -214,40 +215,64 @@ async def analyze_report_button(update: Update, context: ContextTypes.DEFAULT_TY
 
 async def perform_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE, ticker: str, latest_filing_url: str):
     logger.info(f"Starting analysis for {ticker}")
-    try:
-        # Fetch the PDF content
-        logger.debug(f"Attempting to fetch PDF from URL: {latest_filing_url}")
-        async with aiohttp.ClientSession() as session:
-            async with session.get(latest_filing_url) as response:
-                if response.status != 200:
-                    raise Exception(f"Failed to fetch PDF. Status code: {response.status}")
-                pdf_content = await response.read()
-        
-        logger.debug(f"Fetched PDF content for {ticker}, size: {len(pdf_content)} bytes")
-        
-        # Extract text from PDF
-        pdf_text = extract_text_from_pdf(BytesIO(pdf_content))
-        
-        # Analyze the report using Claude
-        logger.debug("Calling analyze_with_claude function")
-        analysis = await analyze_with_claude(ticker, pdf_text)
-        logger.debug("Received analysis from Claude")
-        
-        # Send the analysis to the user
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=analysis, parse_mode=ParseMode.HTML)
-        logger.info(f"Sent analysis for {ticker} to user")
-    except Exception as e:
-        logger.error(f"Error in analysis for {ticker}: {str(e)}", exc_info=True)
-        error_message = f"An error occurred while analyzing the report for {ticker}: {str(e)}"
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=error_message)
+    max_retries = 3
+    retry_delay = 2
 
-def extract_text_from_pdf(file_object):
+    for attempt in range(max_retries):
+        try:
+            # Fetch the PDF content
+            logger.debug(f"Attempt {attempt + 1} to fetch PDF from URL: {latest_filing_url}")
+            timeout = ClientTimeout(total=30)  # 30 seconds timeout
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.get(latest_filing_url) as response:
+                    if response.status != 200:
+                        raise Exception(f"Failed to fetch PDF. Status code: {response.status}")
+                    pdf_content = await response.read()
+            
+            logger.debug(f"Fetched PDF content for {ticker}, size: {len(pdf_content)} bytes")
+            
+            # Extract text from PDF
+            pdf_text = extract_text_from_pdf(pdf_content)
+            
+            if not pdf_text:
+                raise Exception("Failed to extract text from PDF")
+            
+            # Analyze the report using Claude
+            logger.debug("Calling analyze_with_claude function")
+            analysis = await analyze_with_claude(ticker, pdf_text)
+            logger.debug("Received analysis from Claude")
+            
+            # Send the analysis to the user
+            await context.bot.send_message(chat_id=update.effective_chat.id, text=analysis, parse_mode=ParseMode.HTML)
+            logger.info(f"Sent analysis for {ticker} to user")
+            return  # Success, exit the function
+        
+        except aiohttp.ClientError as e:
+            logger.warning(f"Network error on attempt {attempt + 1} for {ticker}: {str(e)}")
+            if attempt < max_retries - 1:
+                await asyncio.sleep(retry_delay)
+            else:
+                raise  # Re-raise the exception if all retries are exhausted
+        except Exception as e:
+            logger.error(f"Error in analysis for {ticker} on attempt {attempt + 1}: {str(e)}", exc_info=True)
+            if attempt < max_retries - 1:
+                await asyncio.sleep(retry_delay)
+            else:
+                error_message = f"An error occurred while analyzing the report for {ticker} after {max_retries} attempts: {str(e)}"
+                await context.bot.send_message(chat_id=update.effective_chat.id, text=error_message)
+                return  # Exit the function after sending error message
+
+def extract_text_from_pdf(pdf_content):
     try:
-        reader = PyPDF2.PdfReader(file_object)
-        text = ""
-        for page in reader.pages:
-            text += page.extract_text()
-        return text
+        with io.BytesIO(pdf_content) as pdf_content:
+            reader = PyPDF2.PdfReader(pdf_content)
+            text = ""
+            for page in reader.pages:
+                text += page.extract_text() or ""  # Use empty string if extraction fails
+            if not text.strip():
+                logger.warning("Extracted text is empty")
+                return None
+            return text
     except Exception as e:
         logger.error(f"Error extracting text from PDF: {e}")
         return None
