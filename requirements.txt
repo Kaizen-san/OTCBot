@@ -5,5 +5,4 @@ Requests==2.32.3
 anthropic==0.34.1
 aiohttp==3.10.5
 PyPDF2==3.0.1
-myupdf==1.16.8
 tenacity==9.0.0
