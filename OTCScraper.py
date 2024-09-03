@@ -289,7 +289,8 @@ async def analyze_with_claude(ticker, text_content):
         "Are there any future plans for the business?",
         "Are there any upcoming material events disclosed or hinted at in the document, such as potential acquisitions, mergers, or significant changes in the share structure?",
         "Are there any plans for reverse split in the future?",
-        "What is the ratio of total assets to market capitalization (total market cap) for the company, based on the information provided in the document?"
+        "What is the ratio of total assets to market capitalization (total market cap) for the company, based on the information provided in the document?",
+        "Reply just with (Here is the anaysis for the document:) at the beggining of the message."
     ]
     
     prompt = f"""Analyze the following document thoroughly for {ticker}, including any tables or structured data. Then answer these questions:
