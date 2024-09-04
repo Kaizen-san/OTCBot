@@ -229,27 +229,23 @@ async def perform_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE, t
             async with aiohttp.ClientSession(timeout=timeout) as session:
                 logger.debug(f"Attempt {attempt + 1} to fetch content from URL: {latest_filing_url}")
                 async with session.get(latest_filing_url, headers=headers) as response:
-                    response.raise_for_status()  # This will raise ClientResponseError for bad HTTP status codes
+                    response.raise_for_status()
                     content = await response.read()
-                    content_type = response.headers.get('Content-Type', '')
-
-            logger.debug(f"Fetched content for {ticker}, size: {len(content)} bytes, Content-Type: {content_type}")
+                    
+            logger.debug(f"Fetched content for {ticker}, size: {len(content)} bytes")
             
-            # Extract text (assuming it's always PDF for simplicity)
             text = extract_text_from_pdf(io.BytesIO(content))
             
             if not text:
                 raise Exception("Failed to extract text from document")
             
-            # Analyze the report using Claude
             logger.debug("Calling analyze_with_claude function")
             analysis = await analyze_with_claude(ticker, text)
             logger.debug("Received analysis from Claude")
             
-            # Send the analysis to the user
             await context.bot.send_message(chat_id=update.effective_chat.id, text=analysis, parse_mode=ParseMode.HTML)
             logger.info(f"Sent analysis for {ticker} to user")
-            return  # Success, exit the function
+            return
 
         except asyncio.TimeoutError:
             logger.warning(f"Timeout error on attempt {attempt + 1} for {ticker}")
@@ -261,11 +257,10 @@ async def perform_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE, t
             logger.error(f"Error in analysis for {ticker} on attempt {attempt + 1}: {str(e)}", exc_info=True)
         
         if attempt < max_retries - 1:
-            await asyncio.sleep(retry_delay * (attempt + 1))  # Exponential backoff
+            await asyncio.sleep(retry_delay * (attempt + 1))
         else:
             error_message = f"Failed to analyze the report for {ticker} after {max_retries} attempts."
             await context.bot.send_message(chat_id=update.effective_chat.id, text=error_message)
-
 
 def extract_text_from_pdf(pdf_content):
     try:
@@ -320,7 +315,6 @@ Document content:
         else:
             analysis = str(response.content)
         
-        # Format the analysis for better display
         formatted_analysis = "Here is the analysis for the document:\n\n"
         for line in analysis.split('\n'):
             if line.strip().startswith(tuple(str(i) + '.' for i in range(1, 11))):
