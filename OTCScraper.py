@@ -196,13 +196,15 @@ async def analyze_report_button(update: Update, context: ContextTypes.DEFAULT_TY
     logger.debug(f"Analyzing report for ticker: {ticker}")
     
     latest_filing_url = context.user_data.get(f'latest_filing_url_{ticker}', "N/A")
+    previous_close_price = context.user_data.get(f'previous_close_price_{ticker}', "N/A")
     logger.debug(f"Retrieved latest filing URL for {ticker}: {latest_filing_url}")
+    logger.debug(f"Retrieved previous close price for {ticker}: {previous_close_price}")
     
-    if latest_filing_url != "N/A":
+    if latest_filing_url != "N/A" and previous_close_price != "N/A":
         await query.edit_message_text(f"Fetching and analyzing the latest report for {ticker}. This may take a few moments...")
         
         try:
-            await perform_analysis(update, context, ticker, latest_filing_url)
+            await perform_analysis(update, context, ticker, latest_filing_url, previous_close_price)
         except Exception as e:
             logger.error(f"Error during analysis for {ticker}: {str(e)}", exc_info=True)
             await context.bot.send_message(
@@ -210,11 +212,11 @@ async def analyze_report_button(update: Update, context: ContextTypes.DEFAULT_TY
                 text=f"An error occurred during the analysis for {ticker}. Please try again later."
             )
     else:
-        error_message = f"Sorry, no latest filing URL available for {ticker}. Please fetch the ticker info again using /info {ticker}"
+        error_message = f"Sorry, no latest filing URL or previous close price available for {ticker}. Please fetch the ticker info again using /info {ticker}"
         logger.error(error_message)
         await query.edit_message_text(error_message)
 
-async def perform_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE, ticker: str, latest_filing_url: str):
+async def perform_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE, ticker: str, latest_filing_url: str, previous_close_price: str):
     logger.info(f"Starting analysis for {ticker}")
     max_retries = 5
     retry_delay = 4
@@ -241,7 +243,7 @@ async def perform_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE, t
                 raise Exception("Failed to extract text from document")
             
             logger.debug("Calling analyze_with_claude function")
-            formatted_analysis = await analyze_with_claude(ticker, text)
+            formatted_analysis = await analyze_with_claude(ticker, text, previous_close_price)
             logger.debug("Received analysis from Claude")
             
             if len(formatted_analysis) > MAX_MESSAGE_LENGTH:
@@ -283,7 +285,7 @@ def extract_text_from_pdf(pdf_content):
         logger.error(f"Error extracting text from PDF: {e}")
         return None
 
-async def analyze_with_claude(ticker, text_content):
+async def analyze_with_claude(ticker, text_content, previous_close_price):
     logger.debug(f"Starting analysis with Claude for ticker: {ticker}")
     questions = [
         "In what industry is it? (Block chain, real estate, mining, etc..)",
@@ -295,8 +297,7 @@ async def analyze_with_claude(ticker, text_content):
         "Are there any future plans for the business?",
         "Are there any upcoming material events disclosed or hinted at in the document, such as potential acquisitions, mergers, or significant changes in the share structure?",
         "Are there any plans for reverse split in the future?",
-        "What is the ratio of total assets to market capitalization (total market cap) for the company, based on the information provided in the document?",
-        "Reply just with (Here is the analysis for the document:) at the beginning of the message."
+        f"What is the ratio of total assets to market capitalization (total market cap) for the company, based on the information provided in the document? Use the previous close price of ${previous_close_price} to calculate the market cap.",
     ]
     
     prompt = f"""Analyze the following document thoroughly for {ticker}, including any tables or structured data. Then answer these questions:
@@ -305,6 +306,8 @@ async def analyze_with_claude(ticker, text_content):
 
 Document content:
 {text_content[:100000]}  # Limit to first 100,000 characters to avoid token limits
+
+Provide your answers in a clear, concise manner. Use line breaks between sentences for better readability.
 """
     
     try:
@@ -317,10 +320,7 @@ Document content:
                 ]
             )
         
-        if isinstance(response.content, list) and response.content and 'text' in response.content[0]:
-            analysis = response.content[0]['text']
-        else:
-            analysis = str(response.content)
+        analysis = response.content[0]['text'] if isinstance(response.content, list) and response.content and 'text' in response.content[0] else str(response.content)
         
         formatted_analysis = f"<b>Analysis for {ticker}:</b>\n\n"
         
@@ -330,7 +330,7 @@ Document content:
         
         for line in sections:
             line = line.strip()
-            if line.startswith(tuple(f"{i}." for i in range(1, 11))):
+            if any(line.startswith(f"{i}.") for i in range(1, 11)):
                 if current_section:
                     formatted_analysis += f"{current_section}\n\n"
                 current_section = f"<b>{line}</b>\n"
@@ -341,11 +341,8 @@ Document content:
         if current_section:
             formatted_analysis += f"{current_section}\n\n"
         
-        # Add a summary or conclusion if provided
-        if "In conclusion" in analysis or "To summarize" in analysis:
-            formatted_analysis += "<b>Summary:</b>\n"
-            summary_lines = [line for line in sections if "In conclusion" in line or "To summarize" in line]
-            formatted_analysis += "\n".join(summary_lines)
+        # Replace common characters that might interfere with HTML parsing
+        formatted_analysis = formatted_analysis.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
         
         return formatted_analysis
     except Exception as e:
@@ -484,6 +481,8 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
          # Store the latest filing URL in user_data
         context.user_data[f'latest_filing_url_{ticker}'] = latest_filing_url
         logger.debug(f"Stored latest filing URL for {ticker} in user_data: {latest_filing_url}")
+        context.user_data[f'previous_close_price_{ticker}'] = previous_close_price
+
 
         previous_close_price = parsed_trade.get("previousClose", "N/A") if parsed_trade else "N/A"
 
