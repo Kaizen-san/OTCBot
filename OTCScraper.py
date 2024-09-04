@@ -218,6 +218,7 @@ async def perform_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE, t
     logger.info(f"Starting analysis for {ticker}")
     max_retries = 5
     retry_delay = 4
+    MAX_MESSAGE_LENGTH = 4000  # Leaving some room for formatting
 
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
@@ -240,10 +241,16 @@ async def perform_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE, t
                 raise Exception("Failed to extract text from document")
             
             logger.debug("Calling analyze_with_claude function")
-            analysis = await analyze_with_claude(ticker, text)
+            formatted_analysis = await analyze_with_claude(ticker, text)
             logger.debug("Received analysis from Claude")
             
-            await context.bot.send_message(chat_id=update.effective_chat.id, text=analysis, parse_mode=ParseMode.HTML)
+            if len(formatted_analysis) > MAX_MESSAGE_LENGTH:
+                chunks = [formatted_analysis[i:i+MAX_MESSAGE_LENGTH] for i in range(0, len(formatted_analysis), MAX_MESSAGE_LENGTH)]
+                for chunk in chunks:
+                    await context.bot.send_message(chat_id=update.effective_chat.id, text=chunk, parse_mode=ParseMode.HTML)
+            else:
+                await context.bot.send_message(chat_id=update.effective_chat.id, text=formatted_analysis, parse_mode=ParseMode.HTML)
+            
             logger.info(f"Sent analysis for {ticker} to user")
             return
 
@@ -289,7 +296,7 @@ async def analyze_with_claude(ticker, text_content):
         "Are there any upcoming material events disclosed or hinted at in the document, such as potential acquisitions, mergers, or significant changes in the share structure?",
         "Are there any plans for reverse split in the future?",
         "What is the ratio of total assets to market capitalization (total market cap) for the company, based on the information provided in the document?",
-        "Reply just with (Here is the anaysis for the document:) at the beggining of the message."
+        "Reply just with (Here is the analysis for the document:) at the beginning of the message."
     ]
     
     prompt = f"""Analyze the following document thoroughly for {ticker}, including any tables or structured data. Then answer these questions:
@@ -315,17 +322,36 @@ Document content:
         else:
             analysis = str(response.content)
         
-        formatted_analysis = "Here is the analysis for the document:\n\n"
-        for line in analysis.split('\n'):
-            if line.strip().startswith(tuple(str(i) + '.' for i in range(1, 11))):
-                formatted_analysis += f"<b>{line.strip()}</b>\n"
-            else:
-                formatted_analysis += f"{line.strip()}\n"
+        formatted_analysis = f"<b>Analysis for {ticker}:</b>\n\n"
+        
+        # Split the analysis into sections based on numbered questions
+        sections = analysis.split('\n')
+        current_section = ""
+        
+        for line in sections:
+            line = line.strip()
+            if line.startswith(tuple(f"{i}." for i in range(1, 11))):
+                if current_section:
+                    formatted_analysis += f"{current_section}\n\n"
+                current_section = f"<b>{line}</b>\n"
+            elif line:
+                current_section += f"{line}\n"
+        
+        # Add the last section
+        if current_section:
+            formatted_analysis += f"{current_section}\n\n"
+        
+        # Add a summary or conclusion if provided
+        if "In conclusion" in analysis or "To summarize" in analysis:
+            formatted_analysis += "<b>Summary:</b>\n"
+            summary_lines = [line for line in sections if "In conclusion" in line or "To summarize" in line]
+            formatted_analysis += "\n".join(summary_lines)
         
         return formatted_analysis
     except Exception as e:
         logger.error(f"Error calling Claude API: {str(e)}", exc_info=True)
         return f"An error occurred while analyzing the report with Claude: {str(e)}"
+    
 
 async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     global ticker_data
