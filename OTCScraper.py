@@ -399,15 +399,17 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(f"Error fetching company profile: {e}")
         return
 
-    try:
+      try:
         # Fetch Trade Data
         trade_response = requests.get(trade_url, headers=headers)
         trade_response.raise_for_status()
         parsed_trade = trade_response.json()
         logger.info("Trade Response: %s", parsed_trade)
+        previous_close_price = parsed_trade.get("previousClose", "N/A")
     except requests.RequestException as e:
         logger.warning(f"No trade information available: {e}")
         parsed_trade = None
+        previous_close_price = "N/A"
 
     try:
         # Fetch News Data
@@ -429,6 +431,13 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             'news': latest_news
         }
         logger.info(f"Data stored for ticker {ticker}: {json.dumps(ticker_data[ticker], default=str)}")
+    except Exception as e:
+        logger.error(f"Error storing data for ticker {ticker}: {str(e)}")
+        await update.message.reply_text(f"An error occurred while processing data for {ticker}. Please try again.")
+        return
+      # Store the previous close price in user_data
+        context.user_data[f'previous_close_price_{ticker}'] = previous_close_price
+        logger.debug(f"Stored previous close price for {ticker} in user_data: {previous_close_price}")
     except Exception as e:
         logger.error(f"Error storing data for ticker {ticker}: {str(e)}")
         await update.message.reply_text(f"An error occurred while processing data for {ticker}. Please try again.")
@@ -481,7 +490,6 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
          # Store the latest filing URL in user_data
         context.user_data[f'latest_filing_url_{ticker}'] = latest_filing_url
         logger.debug(f"Stored latest filing URL for {ticker} in user_data: {latest_filing_url}")
-        context.user_data[f'previous_close_price_{ticker}'] = previous_close_price
 
 
         previous_close_price = parsed_trade.get("previousClose", "N/A") if parsed_trade else "N/A"
