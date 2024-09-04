@@ -399,7 +399,7 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(f"Error fetching company profile: {e}")
         return
 
-      try:
+    try:
         # Fetch Trade Data
         trade_response = requests.get(trade_url, headers=headers)
         trade_response.raise_for_status()
