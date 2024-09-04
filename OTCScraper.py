@@ -189,21 +189,20 @@ async def add_to_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         await query.edit_message_text(f"An error occurred while adding {ticker} to the watchlist. Please try again later.")
 
 async def analyze_report_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    global ticker_data
     query = update.callback_query
     await query.answer()
     
     ticker = query.data.split('_')[-1]
     logger.debug(f"Analyzing report for ticker: {ticker}")
     
-    latest_filing_url = context.user_data.get(f'latest_filing_url_{ticker}', "N/A")
-    previous_close_price = context.user_data.get(f'previous_close_price_{ticker}', "N/A")
-    logger.debug(f"Retrieved latest filing URL for {ticker}: {latest_filing_url}")
-    logger.debug(f"Retrieved previous close price for {ticker}: {previous_close_price}")
-    
-    # Debug: Print all user_data keys
-    logger.debug(f"All user_data keys: {context.user_data.keys()}")
+    ticker_info = ticker_data.get(ticker, {})
+    latest_filing_url = ticker_info.get('profile', {}).get('latestFilingUrl', "N/A")
+    previous_close_price = ticker_info.get('previous_close_price', "N/A")
     
     if latest_filing_url != "N/A" and previous_close_price != "N/A":
+        if latest_filing_url and latest_filing_url != "N/A":
+            latest_filing_url = get_full_filing_url(latest_filing_url)
         await query.edit_message_text(f"Fetching and analyzing the latest report for {ticker}. This may take a few moments...")
         
         try:
@@ -215,12 +214,7 @@ async def analyze_report_button(update: Update, context: ContextTypes.DEFAULT_TY
                 text=f"An error occurred during the analysis for {ticker}. Please try again later."
             )
     else:
-        error_message = f"Sorry, some information is missing for {ticker}:"
-        if latest_filing_url == "N/A":
-            error_message += "\n- Latest filing URL is not available"
-        if previous_close_price == "N/A":
-            error_message += "\n- Previous close price is not available"
-        error_message += f"\nPlease fetch the ticker info again using /info {ticker}"
+        error_message = f"Sorry, some information is missing for {ticker}. Please fetch the ticker info again using /info {ticker}"
         logger.error(error_message)
         await query.edit_message_text(error_message)
 
@@ -414,7 +408,6 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         parsed_trade = trade_response.json()
         logger.info("Trade Response: %s", parsed_trade)
         previous_close_price = parsed_trade.get("previousClose", "N/A")
-        logger.debug(f"Previous close price for {ticker}: {previous_close_price}")
     except requests.RequestException as e:
         logger.warning(f"No trade information available: {e}")
         parsed_trade = None
@@ -435,11 +428,13 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
         # Store the parsed data in the global dictionary
         ticker_data[ticker] = {
-            'profile': parsed_profile,
-            'trade': parsed_trade,
-            'news': latest_news
+        'profile': parsed_profile,
+        'trade': parsed_trade,
+        'news': latest_news,
+        'previous_close_price': previous_close_price  # Add this line
         }
         logger.info(f"Data stored for ticker {ticker}: {json.dumps(ticker_data[ticker], default=str)}")
+
     except Exception as e:
         logger.error(f"Error storing data for ticker {ticker}: {str(e)}")
         await update.message.reply_text(f"An error occurred while processing data for {ticker}. Please try again.")
