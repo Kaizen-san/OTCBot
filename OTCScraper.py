@@ -200,6 +200,9 @@ async def analyze_report_button(update: Update, context: ContextTypes.DEFAULT_TY
     logger.debug(f"Retrieved latest filing URL for {ticker}: {latest_filing_url}")
     logger.debug(f"Retrieved previous close price for {ticker}: {previous_close_price}")
     
+    # Debug: Print all user_data keys
+    logger.debug(f"All user_data keys: {context.user_data.keys()}")
+    
     if latest_filing_url != "N/A" and previous_close_price != "N/A":
         await query.edit_message_text(f"Fetching and analyzing the latest report for {ticker}. This may take a few moments...")
         
@@ -212,7 +215,12 @@ async def analyze_report_button(update: Update, context: ContextTypes.DEFAULT_TY
                 text=f"An error occurred during the analysis for {ticker}. Please try again later."
             )
     else:
-        error_message = f"Sorry, no latest filing URL or previous close price available for {ticker}. Please fetch the ticker info again using /info {ticker}"
+        error_message = f"Sorry, some information is missing for {ticker}:"
+        if latest_filing_url == "N/A":
+            error_message += "\n- Latest filing URL is not available"
+        if previous_close_price == "N/A":
+            error_message += "\n- Previous close price is not available"
+        error_message += f"\nPlease fetch the ticker info again using /info {ticker}"
         logger.error(error_message)
         await query.edit_message_text(error_message)
 
@@ -406,6 +414,7 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         parsed_trade = trade_response.json()
         logger.info("Trade Response: %s", parsed_trade)
         previous_close_price = parsed_trade.get("previousClose", "N/A")
+        logger.debug(f"Previous close price for {ticker}: {previous_close_price}")
     except requests.RequestException as e:
         logger.warning(f"No trade information available: {e}")
         parsed_trade = None
