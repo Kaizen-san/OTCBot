@@ -20,6 +20,7 @@ from aiohttp import ClientTimeout, ClientResponseError, ClientConnectorError
 import io
 from io import BytesIO
 import PyPDF2
+import re
 
 
 
@@ -223,11 +224,9 @@ async def perform_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE, t
     max_retries = 5
     retry_delay = 4
     MAX_MESSAGE_LENGTH = 4000  # Leaving some room for formatting
-
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
     }
-
     for attempt in range(max_retries):
         try:
             timeout = ClientTimeout(total=120, connect=30, sock_read=60)
@@ -245,8 +244,10 @@ async def perform_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE, t
                 raise Exception("Failed to extract text from document")
             
             logger.debug("Calling analyze_with_claude function")
-            formatted_analysis = await analyze_with_claude(ticker, text, previous_close_price)
+            raw_analysis = await analyze_with_claude(ticker, text, previous_close_price)
             logger.debug("Received analysis from Claude")
+            
+            formatted_analysis = parse_claude_response(raw_analysis)
             
             if len(formatted_analysis) > MAX_MESSAGE_LENGTH:
                 chunks = [formatted_analysis[i:i+MAX_MESSAGE_LENGTH] for i in range(0, len(formatted_analysis), MAX_MESSAGE_LENGTH)]
@@ -257,7 +258,6 @@ async def perform_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE, t
             
             logger.info(f"Sent analysis for {ticker} to user")
             return
-
         except asyncio.TimeoutError:
             logger.warning(f"Timeout error on attempt {attempt + 1} for {ticker}")
         except ClientResponseError as e:
@@ -322,15 +322,31 @@ Start your reply with "Here is the analysis for {ticker}:" Provide your answers 
                 ]
             )
         
-        analysis = response.content[0]['text'] if isinstance(response.content, list) and response.content and 'text' in response.content[0] else str(response.content)
-        
-        # Replace common characters that might interfere with HTML parsing
-        formatted_analysis = analysis.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-        
-        return formatted_analysis.strip()
+        return response.content[0]['text'] if isinstance(response.content, list) and response.content and 'text' in response.content[0] else str(response.content)
     except Exception as e:
         logger.error(f"Error calling Claude API: {str(e)}", exc_info=True)
         return f"An error occurred while analyzing the report with Claude: {str(e)}"
+    
+
+def parse_claude_response(response):
+    # Extract the text between [TextBlock(text=' and ', type='text')]
+    match = re.search(r"\[TextBlock\(text='(.*?)', type='text'\)\]", response, re.DOTALL)
+    if not match:
+        return "Error: Could not parse the response"
+    
+    text = match.group(1)
+    
+    # Replace "\n\n" with a custom paragraph separator
+    text = text.replace("\\n\\n", "\n\n<PARAGRAPH>\n\n")
+    
+    # Replace "\n" with an actual newline
+    text = text.replace("\\n", "\n")
+    
+    # Split into paragraphs and join with double newlines
+    paragraphs = text.split("<PARAGRAPH>")
+    formatted_text = "\n\n".join(paragraph.strip() for paragraph in paragraphs)
+    
+    return formatted_text
     
 
 async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
