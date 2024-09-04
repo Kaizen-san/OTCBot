@@ -309,7 +309,7 @@ async def analyze_with_claude(ticker, text_content, previous_close_price):
 Document content:
 {text_content[:100000]}  # Limit to first 100,000 characters to avoid token limits
 
-Provide your answers in a clear, concise manner. Use line breaks between sentences for better readability.
+Start your reply with "Here is the analysis for {ticker}:" Provide your answers in a clear, concise manner but not as you are answering a question but as if you are stating a fact. Do not include question numbers or prefixes in your responses.
 """
     
     try:
@@ -324,29 +324,10 @@ Provide your answers in a clear, concise manner. Use line breaks between sentenc
         
         analysis = response.content[0]['text'] if isinstance(response.content, list) and response.content and 'text' in response.content[0] else str(response.content)
         
-        formatted_analysis = f"<b>Analysis for {ticker}:</b>\n\n"
-        
-        # Split the analysis into sections based on numbered questions
-        sections = analysis.split('\n')
-        current_section = ""
-        
-        for line in sections:
-            line = line.strip()
-            if any(line.startswith(f"{i}.") for i in range(1, 11)):
-                if current_section:
-                    formatted_analysis += f"{current_section}\n\n"
-                current_section = f"<b>{line}</b>\n"
-            elif line:
-                current_section += f"{line}\n"
-        
-        # Add the last section
-        if current_section:
-            formatted_analysis += f"{current_section}\n\n"
-        
         # Replace common characters that might interfere with HTML parsing
-        formatted_analysis = formatted_analysis.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        formatted_analysis = analysis.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
         
-        return formatted_analysis
+        return formatted_analysis.strip()
     except Exception as e:
         logger.error(f"Error calling Claude API: {str(e)}", exc_info=True)
         return f"An error occurred while analyzing the report with Claude: {str(e)}"
