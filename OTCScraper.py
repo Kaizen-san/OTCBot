@@ -22,11 +22,18 @@ from io import BytesIO
 import PyPDF2
 import re
 import urllib.parse
+import tenacity
+from tenacity import retry, stop_after_attempt, wait_exponential
+
 
 
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+@retry(stop=stop_after_attempt(5), wait=wait_exponential(multiplier=1, min=4, max=10))
+async def analyze_with_claude(ticker, text_content, previous_close_price):
+    logger.debug(f"Starting analysis with Claude for ticker: {ticker}")
 
 TELEGRAM_TOKEN = Config.TELEGRAM_TOKEN
 if not TELEGRAM_TOKEN:
@@ -232,6 +239,7 @@ async def perform_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE, t
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
     }
+    
     for attempt in range(max_retries):
         try:
             timeout = ClientTimeout(total=120, connect=30, sock_read=60)
@@ -252,7 +260,13 @@ async def perform_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE, t
             raw_analysis = await analyze_with_claude(ticker, text, previous_close_price)
             logger.debug("Received analysis from Claude")
             
+            if not raw_analysis:
+                raise Exception("Empty response from Claude API")
+            
             formatted_analysis = parse_claude_response(raw_analysis)
+            
+            if not formatted_analysis:
+                raise Exception("Failed to parse Claude's response")
             
             if len(formatted_analysis) > MAX_MESSAGE_LENGTH:
                 chunks = [formatted_analysis[i:i+MAX_MESSAGE_LENGTH] for i in range(0, len(formatted_analysis), MAX_MESSAGE_LENGTH)]
@@ -327,10 +341,20 @@ Start your reply with "Here is the analysis for {ticker}:" Provide your answers 
                 ]
             )
         
-        return response.content[0]['text'] if isinstance(response.content, list) and response.content and 'text' in response.content[0] else str(response.content)
+        # Log the raw response for debugging
+        logger.debug(f"Raw response from Claude: {response}")
+        
+        # More robust parsing of the response
+        if isinstance(response.content, list) and response.content and 'text' in response.content[0]:
+            return response.content[0]['text']
+        elif isinstance(response.content, str):
+            return response.content
+        else:
+            raise ValueError("Unexpected response format from Claude API")
+
     except Exception as e:
-        logger.error(f"Error calling Claude API: {str(e)}", exc_info=True)
-        return f"An error occurred while analyzing the report with Claude: {str(e)}"
+        logger.error(f"Error calling Claude API for {ticker}: {str(e)}", exc_info=True)
+        raise  # Re-raise the exception to trigger a retry
     
 
 def parse_claude_response(response):
