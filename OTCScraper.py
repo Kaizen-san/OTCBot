@@ -345,6 +345,7 @@ Start your reply with "Here is the analysis for {ticker}:" Provide your answers 
                 if hasattr(content_item, 'text'):
                     logger.info(f"Successfully parsed Claude API response for {ticker}")
                     logger.debug(f"Parsed content: {content_item.text[:500]}...")  # Log first 500 chars
+                    print(content_item.text)
                     return content_item.text
         
         logger.error(f"Unexpected response format from Claude API: {response}")
