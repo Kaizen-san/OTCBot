@@ -261,13 +261,19 @@ async def perform_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE, t
             api_call_made = True
         
             if raw_analysis is None:
+                logger.error(f"Failed to get a valid response from Claude API for {ticker}")
                 raise Exception("Failed to get a valid response from Claude API")
-        
+            
+            logger.debug(f"Raw analysis received for {ticker}: {raw_analysis[:500]}...")  # Log first 500 chars
+
             formatted_analysis = parse_claude_response(raw_analysis)
-        
+            
             if not formatted_analysis:
+                logger.error(f"Failed to parse Claude's response for {ticker}")
                 raise Exception("Failed to parse Claude's response")
-        
+            
+            logger.debug(f"Formatted analysis for {ticker}: {formatted_analysis[:500]}...")  # Log first 500 chars
+
             if len(formatted_analysis) > MAX_MESSAGE_LENGTH:
                 chunks = [formatted_analysis[i:i+MAX_MESSAGE_LENGTH] for i in range(0, len(formatted_analysis), MAX_MESSAGE_LENGTH)]
                 for chunk in chunks:
@@ -279,7 +285,7 @@ async def perform_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE, t
     
     except Exception as e:
         error_message = f"An error occurred while analyzing {ticker}: {str(e)}"
-        logger.error(error_message)
+        logger.exception(error_message)  # This logs the full stack trace
         await context.bot.send_message(chat_id=update.effective_chat.id, text=error_message)
 
 def extract_text_from_pdf(pdf_content):
@@ -338,13 +344,14 @@ Start your reply with "Here is the analysis for {ticker}:" Provide your answers 
             for content_item in response.content:
                 if hasattr(content_item, 'text'):
                     logger.info(f"Successfully parsed Claude API response for {ticker}")
+                    logger.debug(f"Parsed content: {content_item.text[:500]}...")  # Log first 500 chars
                     return content_item.text
         
         logger.error(f"Unexpected response format from Claude API: {response}")
         return None
 
     except Exception as e:
-        logger.error(f"Error calling Claude API for {ticker}: {str(e)}", exc_info=True)
+        logger.exception(f"Error calling Claude API for {ticker}: {str(e)}")
         return None
 
 def parse_claude_response(response):
