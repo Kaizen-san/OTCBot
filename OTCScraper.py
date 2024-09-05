@@ -42,6 +42,10 @@ WATCHLIST_SHEET_ID = Config.WATCHLIST_SHEET_ID
 #Claude API
 anthropic = Anthropic(api_key=Config.ANTHROPIC_API_KEY)
 
+#Make webhook
+WEBHOOK_URL = Config.WEBHOOK_URL
+
+
 scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
 creds = Credentials.from_service_account_file(GOOGLE_APPLICATION_CREDENTIALS, scopes=scope)
 client = gspread.authorize(creds)
@@ -348,7 +352,23 @@ def parse_claude_response(response):
     formatted_text = "\n\n".join(paragraph.strip() for paragraph in paragraphs)
     
     return formatted_text
+
+async def send_to_webhook(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
     
+    ticker = query.data.split('_')[-1]
+    
+    async with aiohttp.ClientSession() as session:
+        try:
+            async with session.post(WEBHOOK_URL, json={"ticker": ticker}) as response:
+                if response.status == 200:
+                    await query.edit_message_text(f"Successfully sent {ticker} to webhook.")
+                else:
+                    await query.edit_message_text(f"Failed to send {ticker} to webhook. Status code: {response.status}")
+        except Exception as e:
+            logger.error(f"Error sending to webhook: {str(e)}")
+            await query.edit_message_text(f"An error occurred while sending {ticker} to webhook.")    
 
 async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     global ticker_data
@@ -515,8 +535,12 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             ],
             [
                 InlineKeyboardButton("📊 Analyze Latest Report", callback_data=f"analyze_report_{ticker}")
+            ],
+            [
+                InlineKeyboardButton("Get the 20 most recent Tweets", callback_data=f"send_webhook_{ticker}")
             ]
-        ]
+           ]
+        
         reply_markup = InlineKeyboardMarkup(keyboard)
 
         logger.debug(f"Sending response for ticker {ticker} with callback data: add_watchlist_{ticker}")
@@ -606,6 +630,7 @@ def main() -> None:
     application.add_handler(CallbackQueryHandler(add_to_watchlist, pattern="^add_watchlist_"))
     application.add_handler(CallbackQueryHandler(view_watchlist, pattern="^view_watchlist$"))
     application.add_handler(CallbackQueryHandler(analyze_report_button, pattern="^analyze_report_"))
+    application.add_handler(CallbackQueryHandler(send_to_webhook, pattern="^send_webhook_"))
 
 
     application.run_polling(poll_interval=1.0)  # Increase polling interval
