@@ -21,6 +21,7 @@ import io
 from io import BytesIO
 import PyPDF2
 import re
+import urllib.parse
 
 
 
@@ -294,7 +295,7 @@ async def analyze_with_claude(ticker, text_content, previous_close_price):
         "Is it a shell company? If yes, what are the plans for this shell?",
         "What is the amount of the convertible notes the company has? (in $)",
         "When are the convertible notes due? Please elaborate on each convertible note mentioned in the document, including its due date",
-        "Is there shares dilution between the quarters? (if mentioned)",
+        "Have there been any changes to the share structure between the quarters, such as share dilution or a decrease in the number of shares?",
         "Did they settle them (the convertible notes) or do they have plans to settle or do something with it?",
         "Are there any future plans for the business?",
         "Are there any upcoming material events disclosed or hinted at in the document, such as potential acquisitions, mergers, or significant changes in the share structure?",
@@ -415,9 +416,14 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         news_response = requests.get(news_url, headers=headers)
         news_response.raise_for_status()
         news_data = news_response.json()
-        latest_news = [{'title': item.get('title', 'N/A'),
-                        'releaseDate': datetime.fromtimestamp(item.get('releaseDate', 0) / 1000).strftime('%Y-%m-%d')}
-                       for item in news_data.get('records', [])[:3]]
+        latest_news = [
+            {
+                'title': item.get('title', 'N/A'),
+                'releaseDate': datetime.fromtimestamp(item.get('releaseDate', 0) / 1000).strftime('%Y-%m-%d'),
+                'id': item.get('id', 'N/A')
+            }
+            for item in news_data.get('records', [])[:3]
+        ]
     except requests.RequestException as e:
         logger.error(f"Error fetching news: {e}")
         latest_news = []
@@ -524,10 +530,11 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         # Prepare news content
         news_content = "<b>📰 Latest News:</b>\n"
         if latest_news:
-          for news in latest_news:
-            news_content += f"• {custom_escape_html(news['releaseDate'])}: {custom_escape_html(news['title'])}\n"
+            for news in latest_news:
+                news_url = f"https://www.otcmarkets.com/stock/{ticker}/news/{urllib.parse.quote(news['title'])}?id={news['id']}"
+                news_content += f"• {custom_escape_html(news['releaseDate'])}: <a href='{news_url}'>{custom_escape_html(news['title'])}</a>\n"
         else:
-         news_content += "No recent news available.\n"
+            news_content += "No recent news available.\n"
 
         try:
             response_message = (
