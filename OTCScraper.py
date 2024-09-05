@@ -238,6 +238,8 @@ async def perform_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE, t
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
     }
     
+    api_call_made = False  # Flag to ensure only one API call is made
+    
     try:
         timeout = ClientTimeout(total=120, connect=30, sock_read=60)
         async with aiohttp.ClientSession(timeout=timeout) as session:
@@ -254,25 +256,27 @@ async def perform_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE, t
         if not text:
             raise Exception("Failed to extract text from document")
         
-        logger.debug("Calling analyze_with_claude function")
-        raw_analysis = await analyze_with_claude(ticker, text, previous_close_price)
+        if not api_call_made:
+            logger.debug("Calling analyze_with_claude function")
+            raw_analysis = await analyze_with_claude(ticker, text, previous_close_price)
+            api_call_made = True
         
-        if raw_analysis is None:
-            raise Exception("Failed to get a valid response from Claude API")
+            if raw_analysis is None:
+                raise Exception("Failed to get a valid response from Claude API")
         
-        formatted_analysis = parse_claude_response(raw_analysis)
+            formatted_analysis = parse_claude_response(raw_analysis)
         
-        if not formatted_analysis:
-            raise Exception("Failed to parse Claude's response")
+            if not formatted_analysis:
+                raise Exception("Failed to parse Claude's response")
         
-        if len(formatted_analysis) > MAX_MESSAGE_LENGTH:
-            chunks = [formatted_analysis[i:i+MAX_MESSAGE_LENGTH] for i in range(0, len(formatted_analysis), MAX_MESSAGE_LENGTH)]
-            for chunk in chunks:
-                await context.bot.send_message(chat_id=update.effective_chat.id, text=chunk, parse_mode=ParseMode.HTML)
-        else:
-            await context.bot.send_message(chat_id=update.effective_chat.id, text=formatted_analysis, parse_mode=ParseMode.HTML)
+            if len(formatted_analysis) > MAX_MESSAGE_LENGTH:
+                chunks = [formatted_analysis[i:i+MAX_MESSAGE_LENGTH] for i in range(0, len(formatted_analysis), MAX_MESSAGE_LENGTH)]
+                for chunk in chunks:
+                    await context.bot.send_message(chat_id=update.effective_chat.id, text=chunk, parse_mode=ParseMode.HTML)
+            else:
+                await context.bot.send_message(chat_id=update.effective_chat.id, text=formatted_analysis, parse_mode=ParseMode.HTML)
         
-        logger.info(f"Sent analysis for {ticker} to user")
+            logger.info(f"Sent analysis for {ticker} to user")
     
     except Exception as e:
         error_message = f"An error occurred while analyzing {ticker}: {str(e)}"
