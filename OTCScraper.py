@@ -233,73 +233,51 @@ async def analyze_report_button(update: Update, context: ContextTypes.DEFAULT_TY
 
 async def perform_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE, ticker: str, latest_filing_url: str, previous_close_price: str):
     logger.info(f"Starting analysis for {ticker}")
-    max_retries = 5
-    retry_delay = 4
     MAX_MESSAGE_LENGTH = 4000  # Leaving some room for formatting
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
     }
     
-    for attempt in range(max_retries):
-        try:
-            timeout = ClientTimeout(total=120, connect=30, sock_read=60)
-            async with aiohttp.ClientSession(timeout=timeout) as session:
-                logger.debug(f"Attempt {attempt + 1} to fetch content from URL: {latest_filing_url}")
-                async with session.get(latest_filing_url, headers=headers) as response:
-                    response.raise_for_status()
-                    content = await response.read()
-                    
-            logger.debug(f"Fetched content for {ticker}, size: {len(content)} bytes")
-            
-            text = extract_text_from_pdf(io.BytesIO(content))
-            
-            if not text:
-                raise Exception("Failed to extract text from document")
-            
-            logger.debug("Calling analyze_with_claude function")
-            raw_analysis = await analyze_with_claude(ticker, text, previous_close_price)
-            logger.debug("Received analysis from Claude")
-            
-            if not raw_analysis:
-                raise Exception("Empty response from Claude API")
-            
-            formatted_analysis = parse_claude_response(raw_analysis)
-            
-            if not formatted_analysis:
-                raise Exception("Failed to parse Claude's response")
-            
-            if len(formatted_analysis) > MAX_MESSAGE_LENGTH:
-                chunks = [formatted_analysis[i:i+MAX_MESSAGE_LENGTH] for i in range(0, len(formatted_analysis), MAX_MESSAGE_LENGTH)]
-                for chunk in chunks:
-                    await context.bot.send_message(chat_id=update.effective_chat.id, text=chunk, parse_mode=ParseMode.HTML)
-            else:
-                await context.bot.send_message(chat_id=update.effective_chat.id, text=formatted_analysis, parse_mode=ParseMode.HTML)
-            
-            logger.info(f"Sent analysis for {ticker} to user")
-            return
-        except RateLimitError as e:
-            logger.warning(f"Rate limit error on attempt {attempt + 1} for {ticker}: {str(e)}")
-            if attempt < max_retries - 1:
-                await asyncio.sleep(retry_delay * (2 ** attempt))  # Exponential backoff
-            else:
-                error_message = f"Rate limit exceeded for {ticker}. Please try again later."
-                await context.bot.send_message(chat_id=update.effective_chat.id, text=error_message)
-        except asyncio.TimeoutError:
-            logger.warning(f"Timeout error on attempt {attempt + 1} for {ticker}")
-        except ClientResponseError as e:
-            logger.warning(f"HTTP error on attempt {attempt + 1} for {ticker}: {e.status} {e.message}")
-        except ClientConnectorError as e:
-            logger.warning(f"Connection error on attempt {attempt + 1} for {ticker}: {str(e)}")
-        except Exception as e:
-            logger.error(f"Error in analysis for {ticker} on attempt {attempt + 1}: {str(e)}", exc_info=True)
+    try:
+        timeout = ClientTimeout(total=120, connect=30, sock_read=60)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            logger.debug(f"Fetching content from URL: {latest_filing_url}")
+            async with session.get(latest_filing_url, headers=headers) as response:
+                response.raise_for_status()
+                content = await response.read()
+                
+        logger.debug(f"Fetched content for {ticker}, size: {len(content)} bytes")
         
-        if attempt < max_retries - 1:
-            await asyncio.sleep(retry_delay * (attempt + 1))
+        # Extract text from PDF
+        text = extract_text_from_pdf(io.BytesIO(content))
+        
+        if not text:
+            raise Exception("Failed to extract text from document")
+        
+        logger.debug("Calling analyze_with_claude function")
+        raw_analysis = await analyze_with_claude(ticker, text, previous_close_price)
+        
+        if raw_analysis is None:
+            raise Exception("Failed to get a valid response from Claude API")
+        
+        formatted_analysis = parse_claude_response(raw_analysis)
+        
+        if not formatted_analysis:
+            raise Exception("Failed to parse Claude's response")
+        
+        if len(formatted_analysis) > MAX_MESSAGE_LENGTH:
+            chunks = [formatted_analysis[i:i+MAX_MESSAGE_LENGTH] for i in range(0, len(formatted_analysis), MAX_MESSAGE_LENGTH)]
+            for chunk in chunks:
+                await context.bot.send_message(chat_id=update.effective_chat.id, text=chunk, parse_mode=ParseMode.HTML)
         else:
-            error_message = f"Failed to analyze the report for {ticker} after {max_retries} attempts."
-            await context.bot.send_message(chat_id=update.effective_chat.id, text=error_message)
-
-    logger.error(f"Failed to complete analysis for {ticker} after all attempts")
+            await context.bot.send_message(chat_id=update.effective_chat.id, text=formatted_analysis, parse_mode=ParseMode.HTML)
+        
+        logger.info(f"Sent analysis for {ticker} to user")
+    
+    except Exception as e:
+        error_message = f"An error occurred while analyzing {ticker}: {str(e)}"
+        logger.error(error_message)
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=error_message)
 
 def extract_text_from_pdf(pdf_content):
     try:
@@ -317,6 +295,7 @@ def extract_text_from_pdf(pdf_content):
 
 async def analyze_with_claude(ticker, text_content, previous_close_price):
     logger.debug(f"Starting analysis with Claude for ticker: {ticker}")
+    
     questions = [
         "In what industry is it? (Block chain, real estate, mining, etc..)",
         "Is it a shell company? If yes, what are the plans for this shell?",
@@ -340,45 +319,30 @@ Document content:
 Start your reply with "Here is the analysis for {ticker}:" Provide your answers in a clear, concise manner but not as you are answering a question but as if you are stating a fact. Do not include question numbers or prefixes in your responses.
 """
 
-    max_retries = 3
-    base_delay = 5  # seconds
+    try:
+        async with AsyncAnthropic() as client:
+            response = await client.messages.create(
+                model="claude-3-opus-20240229",
+                max_tokens=4000,
+                messages=[
+                    {"role": "user", "content": prompt}
+                ]
+            )
+        
+        logger.debug(f"Raw response from Claude: {response}")
+        
+        if hasattr(response, 'content') and isinstance(response.content, list):
+            for content_item in response.content:
+                if hasattr(content_item, 'text'):
+                    logger.info(f"Successfully parsed Claude API response for {ticker}")
+                    return content_item.text
+        
+        logger.error(f"Unexpected response format from Claude API: {response}")
+        return None
 
-    for attempt in range(max_retries):
-        try:
-            async with AsyncAnthropic() as client:
-                response = await client.messages.create(
-                    model="claude-3-opus-20240229",
-                    max_tokens=4000,
-                    messages=[
-                        {"role": "user", "content": prompt}
-                    ]
-                )
-            
-            logger.debug(f"Raw response from Claude: {json.dumps(response.dict(), default=str)}")
-            
-            if hasattr(response, 'content') and isinstance(response.content, list) and response.content:
-                content = response.content[0]
-                if isinstance(content, dict) and 'text' in content:
-                    return content['text']
-            
-            raise ValueError(f"Unexpected response format from Claude API: {response}")
-
-        except RateLimitError as e:
-            logger.warning(f"Rate limit error on attempt {attempt + 1} for {ticker}: {str(e)}")
-            if attempt < max_retries - 1:
-                delay = base_delay * (2 ** attempt)  # Exponential backoff
-                await asyncio.sleep(delay)
-            else:
-                raise
-
-        except Exception as e:
-            logger.error(f"Error calling Claude API for {ticker}: {str(e)}", exc_info=True)
-            if attempt < max_retries - 1:
-                await asyncio.sleep(base_delay)
-            else:
-                raise
-
-    raise Exception(f"Failed to get a valid response from Claude API after {max_retries} attempts")
+    except Exception as e:
+        logger.error(f"Error calling Claude API for {ticker}: {str(e)}", exc_info=True)
+        return None
     
 
 def parse_claude_response(response):
