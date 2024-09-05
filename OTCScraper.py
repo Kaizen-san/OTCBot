@@ -250,7 +250,6 @@ async def perform_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE, t
                 
         logger.debug(f"Fetched content for {ticker}, size: {len(content)} bytes")
         
-        # Extract text from PDF
         text = extract_text_from_pdf(io.BytesIO(content))
         
         if not text:
@@ -347,7 +346,6 @@ Start your reply with "Here is the analysis for {ticker}:" Provide your answers 
     except Exception as e:
         logger.error(f"Error calling Claude API for {ticker}: {str(e)}", exc_info=True)
         return None
-    
 
 def parse_claude_response(response):
     # Extract the text between [TextBlock(text=' and ', type='text')]
