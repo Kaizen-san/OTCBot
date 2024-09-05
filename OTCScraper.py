@@ -13,7 +13,7 @@ import asyncio
 from telegram.error import TimedOut, NetworkError
 import json
 import time
-from anthropic import Anthropic, HUMAN_PROMPT, AI_PROMPT, AsyncAnthropic
+from anthropic import Anthropic, HUMAN_PROMPT, AI_PROMPT, AsyncAnthropic, RateLimitError
 import base64
 import aiohttp
 from aiohttp import ClientTimeout, ClientResponseError, ClientConnectorError
@@ -277,6 +277,13 @@ async def perform_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE, t
             
             logger.info(f"Sent analysis for {ticker} to user")
             return
+        except RateLimitError as e:
+            logger.warning(f"Rate limit error on attempt {attempt + 1} for {ticker}: {str(e)}")
+            if attempt < max_retries - 1:
+                await asyncio.sleep(retry_delay * (2 ** attempt))  # Exponential backoff
+            else:
+                error_message = f"Rate limit exceeded for {ticker}. Please try again later."
+                await context.bot.send_message(chat_id=update.effective_chat.id, text=error_message)
         except asyncio.TimeoutError:
             logger.warning(f"Timeout error on attempt {attempt + 1} for {ticker}")
         except ClientResponseError as e:
@@ -291,6 +298,8 @@ async def perform_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE, t
         else:
             error_message = f"Failed to analyze the report for {ticker} after {max_retries} attempts."
             await context.bot.send_message(chat_id=update.effective_chat.id, text=error_message)
+
+    logger.error(f"Failed to complete analysis for {ticker} after all attempts")
 
 def extract_text_from_pdf(pdf_content):
     try:
@@ -330,31 +339,46 @@ Document content:
 
 Start your reply with "Here is the analysis for {ticker}:" Provide your answers in a clear, concise manner but not as you are answering a question but as if you are stating a fact. Do not include question numbers or prefixes in your responses.
 """
-    
-    try:
-        async with AsyncAnthropic() as client:
-            response = await client.messages.create(
-                model="claude-3-opus-20240229",
-                max_tokens=4000,
-                messages=[
-                    {"role": "user", "content": prompt}
-                ]
-            )
-        
-        # Log the raw response for debugging
-        logger.debug(f"Raw response from Claude: {response}")
-        
-        # More robust parsing of the response
-        if isinstance(response.content, list) and response.content and 'text' in response.content[0]:
-            return response.content[0]['text']
-        elif isinstance(response.content, str):
-            return response.content
-        else:
-            raise ValueError("Unexpected response format from Claude API")
 
-    except Exception as e:
-        logger.error(f"Error calling Claude API for {ticker}: {str(e)}", exc_info=True)
-        raise  # Re-raise the exception to trigger a retry
+    max_retries = 3
+    base_delay = 5  # seconds
+
+    for attempt in range(max_retries):
+        try:
+            async with AsyncAnthropic() as client:
+                response = await client.messages.create(
+                    model="claude-3-opus-20240229",
+                    max_tokens=4000,
+                    messages=[
+                        {"role": "user", "content": prompt}
+                    ]
+                )
+            
+            logger.debug(f"Raw response from Claude: {json.dumps(response.dict(), default=str)}")
+            
+            if hasattr(response, 'content') and isinstance(response.content, list) and response.content:
+                content = response.content[0]
+                if isinstance(content, dict) and 'text' in content:
+                    return content['text']
+            
+            raise ValueError(f"Unexpected response format from Claude API: {response}")
+
+        except RateLimitError as e:
+            logger.warning(f"Rate limit error on attempt {attempt + 1} for {ticker}: {str(e)}")
+            if attempt < max_retries - 1:
+                delay = base_delay * (2 ** attempt)  # Exponential backoff
+                await asyncio.sleep(delay)
+            else:
+                raise
+
+        except Exception as e:
+            logger.error(f"Error calling Claude API for {ticker}: {str(e)}", exc_info=True)
+            if attempt < max_retries - 1:
+                await asyncio.sleep(base_delay)
+            else:
+                raise
+
+    raise Exception(f"Failed to get a valid response from Claude API after {max_retries} attempts")
     
 
 def parse_claude_response(response):
