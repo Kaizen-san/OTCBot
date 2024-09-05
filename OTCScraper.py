@@ -506,8 +506,8 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         keyboard = [
             [
-                InlineKeyboardButton("📈 Chart", url=f"https://www.tradingview.com/symbols/{ticker}/?offer_id=10&aff_id=29379"),
-                InlineKeyboardButton("📄 OTC Profile", url=f"https://www.tradingview.com/chart/?symbol=OTC%3{ticker}"),
+                InlineKeyboardButton("📈 Chart", url=f"https://www.tradingview.com/chart/?symbol=OTC:{ticker}"),
+                InlineKeyboardButton("📄 OTC Profile", url=f"https://www.otcmarkets.com/stock/{ticker}/profile"),
                 InlineKeyboardButton("🐦 Twitter", url=f"https://x.com/search?q=${ticker}&src=typed_query&f=live"),
             ],
             [
