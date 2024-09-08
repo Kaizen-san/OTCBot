@@ -38,7 +38,6 @@ if not TELEGRAM_TOKEN:
     raise ValueError("No TELEGRAM_TOKEN set for Bot")
 
 request = HTTPXRequest(connection_pool_size=8, read_timeout=30, write_timeout=30)
-application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
 # Google Sheets setup
 GOOGLE_APPLICATION_CREDENTIALS = Config.GOOGLE_APPLICATION_CREDENTIALS
@@ -639,7 +638,7 @@ async def rate_limited_request(method, *args, **kwargs):
     return await method(*args, **kwargs)
 
 async def main() -> None:
-    global application  # Make sure 'application' is a global variable
+    global application
     application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
     
     application.add_handler(CommandHandler("start", start))
@@ -652,14 +651,9 @@ async def main() -> None:
     await application.initialize()
     await application.start()
     await application.updater.start_polling(allowed_updates=Update.ALL_TYPES)
-    await application.updater.idle()
+    
+    # This line keeps the application running
+    await application.idle()
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except (KeyboardInterrupt, SystemExit):
-        pass
-    finally:
-        # Ensure that we stop the application gracefully
-        if 'application' in globals():
-            asyncio.run(application.stop())
+    asyncio.run(main())
