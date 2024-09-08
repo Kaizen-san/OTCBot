@@ -96,14 +96,11 @@ def custom_escape_html(text):
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.debug("Received /start command")
-    keyboard = [
-        [InlineKeyboardButton("View Watchlist", callback_data="view_watchlist")]
-    ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
-        "Hello! Send me a ticker symbol to get the stock information.\n"
-        "Use /info <TICKER> to get the stock info.\n"
-        "Or click the button below to view your watchlist.",
+        "Hello! Here are the available commands:\n"
+        "/info <TICKER> - Get stock information\n"
+        "/wl - View your watchlist",
         reply_markup=reply_markup
     )
 async def get_watchlist(user_id):
@@ -117,50 +114,42 @@ async def get_watchlist(user_id):
         return []
 
 async def view_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    await query.answer()
-
+    logger.debug("Received /wl command")
     user_id = update.effective_user.id
     watchlist = await get_watchlist(user_id)
-
+    
     if watchlist:
         watchlist_text = "Your current watchlist:\n" + "\n".join([f"${ticker}" for ticker in watchlist])
     else:
         watchlist_text = "Your watchlist is empty."
-
-    await query.edit_message_text(watchlist_text)
+    
+    await update.message.reply_text(watchlist_text)
 
 
 async def add_to_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     global ticker_data
     query = update.callback_query
     await query.answer()
-
     ticker = query.data.split('_')[-1]  # Use the last part of the split string
     user_id = update.effective_user.id
     username = update.effective_user.username or "Unknown"
-
     logger.debug(f"Adding {ticker} to watchlist for user {user_id}")
     logger.debug(f"Current ticker_data keys: {list(ticker_data.keys())}")
-
     try:
         # Check if the ticker is already in the watchlist
         cell = sheet.find(ticker, in_column=1)
         if cell:
-            await query.edit_message_text(f"{ticker} is already in your watchlist!")
+            await query.message.reply_text(f"{ticker} is already in your watchlist!")
             return
-
         # Fetch the parsed profile, trade, and news data from the global dictionary
         ticker_info = ticker_data.get(ticker)
         if not ticker_info:
             logger.error(f"Ticker data not found for {ticker}")
-            await query.edit_message_text(f"Error: Profile data not found for {ticker}. Please fetch the info again using /info {ticker}")
+            await query.message.reply_text(f"Error: Profile data not found for {ticker}. Please fetch the info again using /info {ticker}")
             return
-
         parsed_profile = ticker_info['profile']
         parsed_trade = ticker_info['trade']
         latest_news = ticker_info['news']
-
         # Extract the required information
         security = parsed_profile.get("securities", [{}])[0]
         outstanding_shares = format_number(security.get("outstandingShares", "N/A"))
@@ -179,10 +168,8 @@ async def add_to_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             latest_filing_url = get_full_filing_url(latest_filing_url)
         previous_close_price = parsed_trade.get("previousClose", "N/A") if parsed_trade else "N/A"
         is_caveat_emptor = parsed_profile.get("isCaveatEmptor", False)
-
         # Format the latest news
         news_str = "; ".join([f"{news['releaseDate']}: {news['title']}" for news in latest_news])
-
         # Prepare the row data
         row_data = [
             ticker, str(user_id), username, datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -190,19 +177,15 @@ async def add_to_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             public_float, public_float_date, previous_close_price, profile_verified, profile_verified_date,
             latest_filing_type, latest_filing_date, latest_filing_url, is_caveat_emptor, news_str
         ]
-
         # Add the data to the watchlist
         sheet.append_row(row_data)
-        await query.edit_message_text(f"{ticker} has been added to your watchlist with all available information!")
-
-        # Clear the data from the global dictionary to free up memory
-        del ticker_data[ticker]
+        await query.message.reply_text(f"{ticker} has been added to your watchlist with all available information!")
+        # We're not deleting the ticker data from the global dictionary anymore
     except Exception as e:
         logger.error(f"Error adding {ticker} to watchlist: {str(e)}")
-        await query.edit_message_text(f"An error occurred while adding {ticker} to the watchlist. Please try again later.")
+        await query.message.reply_text(f"An error occurred while adding {ticker} to the watchlist. Please try again later.")
 
 async def analyze_report_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    global ticker_data
     query = update.callback_query
     await query.answer()
     
@@ -216,7 +199,7 @@ async def analyze_report_button(update: Update, context: ContextTypes.DEFAULT_TY
     if latest_filing_url != "N/A" and previous_close_price != "N/A":
         if latest_filing_url and latest_filing_url != "N/A":
             latest_filing_url = get_full_filing_url(latest_filing_url)
-        await query.edit_message_text(f"Fetching and analyzing the latest report for {ticker}. This may take a few moments...")
+        await query.message.reply_text(f"Fetching and analyzing the latest report for {ticker}. This may take a few moments...")
         
         try:
             await perform_analysis(update, context, ticker, latest_filing_url, previous_close_price)
@@ -229,7 +212,7 @@ async def analyze_report_button(update: Update, context: ContextTypes.DEFAULT_TY
     else:
         error_message = f"Sorry, some information is missing for {ticker}. Please fetch the ticker info again using /info {ticker}"
         logger.error(error_message)
-        await query.edit_message_text(error_message)
+        await query.message.reply_text(error_message)
 
 async def perform_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE, ticker: str, latest_filing_url: str, previous_close_price: str):
     logger.info(f"Starting analysis for {ticker}")
@@ -658,10 +641,12 @@ def main() -> None:
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("info", info))
+    application.add_handler(CommandHandler("wl", view_watchlist))
     application.add_handler(CallbackQueryHandler(add_to_watchlist, pattern="^add_watchlist_"))
-    application.add_handler(CallbackQueryHandler(view_watchlist, pattern="^view_watchlist$"))
     application.add_handler(CallbackQueryHandler(analyze_report_button, pattern="^analyze_report_"))
     application.add_handler(CallbackQueryHandler(send_to_webhook, pattern="^send_webhook_"))
+
+    application.run_polling(poll_interval=1.0)
 
 
     application.run_polling(poll_interval=1.0)  # Increase polling interval
