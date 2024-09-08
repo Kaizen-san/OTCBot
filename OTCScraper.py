@@ -637,8 +637,7 @@ async def rate_limited_request(method, *args, **kwargs):
         await asyncio.sleep(0.1)
     return await method(*args, **kwargs)
 
-def main() -> None:
-
+async def main() -> None:
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("info", info))
     application.add_handler(CommandHandler("wl", view_watchlist))
@@ -646,10 +645,9 @@ def main() -> None:
     application.add_handler(CallbackQueryHandler(analyze_report_button, pattern="^analyze_report_"))
     application.add_handler(CallbackQueryHandler(send_to_webhook, pattern="^send_webhook_"))
 
-    application.run_polling(poll_interval=1.0)
-
-
-    application.run_polling(poll_interval=1.0)  # Increase polling interval
+    await application.initialize()
+    await application.start()
+    await application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
     main()
