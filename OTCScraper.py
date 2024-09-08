@@ -99,8 +99,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
         "Hello! Here are the available commands:\n"
         "/info <TICKER> - Get stock information\n"
-        "/wl - View your watchlist",
-        reply_markup=reply_markup
+        "/wl - View your watchlist"
     )
 async def get_watchlist(user_id):
     try:
