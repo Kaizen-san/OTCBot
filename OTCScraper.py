@@ -26,8 +26,6 @@ import tenacity
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 
-
-
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -45,6 +43,9 @@ application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 # Google Sheets setup
 GOOGLE_APPLICATION_CREDENTIALS = Config.GOOGLE_APPLICATION_CREDENTIALS
 WATCHLIST_SHEET_ID = Config.WATCHLIST_SHEET_ID
+
+# Global variable declaration
+application: Application = None
 
 #Claude API
 anthropic = Anthropic(api_key=Config.ANTHROPIC_API_KEY)
@@ -638,6 +639,9 @@ async def rate_limited_request(method, *args, **kwargs):
     return await method(*args, **kwargs)
 
 async def main() -> None:
+    global application  # Make sure 'application' is a global variable
+    application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+    
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("info", info))
     application.add_handler(CommandHandler("wl", view_watchlist))
@@ -647,7 +651,15 @@ async def main() -> None:
 
     await application.initialize()
     await application.start()
-    await application.run_polling(allowed_updates=Update.ALL_TYPES)
+    await application.updater.start_polling(allowed_updates=Update.ALL_TYPES)
+    await application.updater.idle()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except (KeyboardInterrupt, SystemExit):
+        pass
+    finally:
+        # Ensure that we stop the application gracefully
+        if 'application' in globals():
+            asyncio.run(application.stop())
