@@ -1,6 +1,6 @@
 import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler, ApplicationBuilder
+from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler
 import logging
 from datetime import datetime
 from config import Config
@@ -26,6 +26,8 @@ import tenacity
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 
+
+
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -38,13 +40,11 @@ if not TELEGRAM_TOKEN:
     raise ValueError("No TELEGRAM_TOKEN set for Bot")
 
 request = HTTPXRequest(connection_pool_size=8, read_timeout=30, write_timeout=30)
+application = Application.builder().token(TELEGRAM_TOKEN).request(request).build()
 
 # Google Sheets setup
 GOOGLE_APPLICATION_CREDENTIALS = Config.GOOGLE_APPLICATION_CREDENTIALS
 WATCHLIST_SHEET_ID = Config.WATCHLIST_SHEET_ID
-
-# Global variable declaration
-application: Application = None
 
 #Claude API
 anthropic = Anthropic(api_key=Config.ANTHROPIC_API_KEY)
@@ -96,6 +96,7 @@ def custom_escape_html(text):
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.debug("Received /start command")
+    reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
         "Hello! Here are the available commands:\n"
         "/info <TICKER> - Get stock information\n"
@@ -179,8 +180,7 @@ async def add_to_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         # Add the data to the watchlist
         sheet.append_row(row_data)
         await query.message.reply_text(f"{ticker} has been added to your watchlist with all available information!")
-        # Clear the data from the global dictionary to free up memory
-        del ticker_data[ticker]
+        # We're not deleting the ticker data from the global dictionary anymore
     except Exception as e:
         logger.error(f"Error adding {ticker} to watchlist: {str(e)}")
         await query.message.reply_text(f"An error occurred while adding {ticker} to the watchlist. Please try again later.")
@@ -637,23 +637,15 @@ async def rate_limited_request(method, *args, **kwargs):
         await asyncio.sleep(0.1)
     return await method(*args, **kwargs)
 
-async def main() -> None:
-    global application
-    application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
-    
+def main() -> None:
+
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("info", info))
     application.add_handler(CommandHandler("wl", view_watchlist))
     application.add_handler(CallbackQueryHandler(add_to_watchlist, pattern="^add_watchlist_"))
     application.add_handler(CallbackQueryHandler(analyze_report_button, pattern="^analyze_report_"))
     application.add_handler(CallbackQueryHandler(send_to_webhook, pattern="^send_webhook_"))
-
-    await application.initialize()
-    await application.start()
-    await application.updater.start_polling(allowed_updates=Update.ALL_TYPES)
-    
-    # This line keeps the application running
-    await application.idle()
+    application.run_polling(poll_interval=1.0)  # Increase polling interval
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
