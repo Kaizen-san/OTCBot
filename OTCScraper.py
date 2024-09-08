@@ -1,6 +1,6 @@
 import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler
+from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler, ApplicationBuilder
 import logging
 from datetime import datetime
 from config import Config
@@ -40,7 +40,7 @@ if not TELEGRAM_TOKEN:
     raise ValueError("No TELEGRAM_TOKEN set for Bot")
 
 request = HTTPXRequest(connection_pool_size=8, read_timeout=30, write_timeout=30)
-application = Application.builder().token(TELEGRAM_TOKEN).request(request).build()
+application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
 # Google Sheets setup
 GOOGLE_APPLICATION_CREDENTIALS = Config.GOOGLE_APPLICATION_CREDENTIALS
@@ -650,4 +650,4 @@ async def main() -> None:
     await application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
