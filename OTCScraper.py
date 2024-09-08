@@ -96,7 +96,6 @@ def custom_escape_html(text):
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.debug("Received /start command")
-    reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
         "Hello! Here are the available commands:\n"
         "/info <TICKER> - Get stock information\n"
@@ -180,7 +179,8 @@ async def add_to_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         # Add the data to the watchlist
         sheet.append_row(row_data)
         await query.message.reply_text(f"{ticker} has been added to your watchlist with all available information!")
-        # We're not deleting the ticker data from the global dictionary anymore
+        # Clear the data from the global dictionary to free up memory
+        del ticker_data[ticker]
     except Exception as e:
         logger.error(f"Error adding {ticker} to watchlist: {str(e)}")
         await query.message.reply_text(f"An error occurred while adding {ticker} to the watchlist. Please try again later.")
