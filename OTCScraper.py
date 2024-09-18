@@ -1,6 +1,6 @@
 import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler
+from telegram.ext import ConversationHandler, CommandHandler, CallbackQueryHandler, MessageHandler, filters
 import logging
 from datetime import datetime
 from config import Config
@@ -51,6 +51,9 @@ anthropic = Anthropic(api_key=Config.ANTHROPIC_API_KEY)
 
 #Make webhook
 WEBHOOK_URL = Config.WEBHOOK_URL
+
+# Define states for the conversation
+WAITING_FOR_NOTE = 1
 
 
 scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
@@ -111,6 +114,8 @@ async def get_watchlist(user_id):
         logger.error(f"Error fetching watchlist: {str(e)}")
         return []
 
+
+
 async def view_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.debug("Received /wl command")
     user_id = update.effective_user.id
@@ -124,30 +129,51 @@ async def view_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     await update.message.reply_text(watchlist_text)
 
 
-async def add_to_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def add_to_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     global ticker_data
     query = update.callback_query
     await query.answer()
-    ticker = query.data.split('_')[-1]  # Use the last part of the split string
+    ticker = query.data.split('_')[-1]
     user_id = update.effective_user.id
     username = update.effective_user.username or "Unknown"
     logger.debug(f"Adding {ticker} to watchlist for user {user_id}")
-    logger.debug(f"Current ticker_data keys: {list(ticker_data.keys())}")
+    
+    # Store the ticker in context for later use
+    context.user_data['current_ticker'] = ticker
+    
+    await query.message.reply_text(f"Adding {ticker} to your watchlist. Please enter a note about why you're adding this stock:")
+    
+    return WAITING_FOR_NOTE
+
+async def save_note_and_add_to_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    global ticker_data
+    user_note = update.message.text
+    ticker = context.user_data.get('current_ticker')
+    user_id = update.effective_user.id
+    username = update.effective_user.username or "Unknown"
+    
+    if not ticker:
+        await update.message.reply_text("Sorry, there was an error. Please try adding the stock again.")
+        return ConversationHandler.END
+    
     try:
         # Check if the ticker is already in the watchlist
         cell = sheet.find(ticker, in_column=1)
         if cell:
-            await query.message.reply_text(f"{ticker} is already in your watchlist!")
-            return
+            await update.message.reply_text(f"{ticker} is already in your watchlist!")
+            return ConversationHandler.END
+
         # Fetch the parsed profile, trade, and news data from the global dictionary
         ticker_info = ticker_data.get(ticker)
         if not ticker_info:
             logger.error(f"Ticker data not found for {ticker}")
-            await query.message.reply_text(f"Error: Profile data not found for {ticker}. Please fetch the info again using /info {ticker}")
-            return
+            await update.message.reply_text(f"Error: Profile data not found for {ticker}. Please fetch the info again using /info {ticker}")
+            return ConversationHandler.END
+
         parsed_profile = ticker_info['profile']
         parsed_trade = ticker_info['trade']
         latest_news = ticker_info['news']
+
         # Extract the required information
         security = parsed_profile.get("securities", [{}])[0]
         outstanding_shares = format_number(security.get("outstandingShares", "N/A"))
@@ -166,22 +192,33 @@ async def add_to_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             latest_filing_url = get_full_filing_url(latest_filing_url)
         previous_close_price = parsed_trade.get("previousClose", "N/A") if parsed_trade else "N/A"
         is_caveat_emptor = parsed_profile.get("isCaveatEmptor", False)
+
         # Format the latest news
         news_str = "; ".join([f"{news['releaseDate']}: {news['title']}" for news in latest_news])
-        # Prepare the row data
+
+        # Prepare the row data, including the new note
         row_data = [
             ticker, str(user_id), username, datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             tier_display_name, outstanding_shares, outstanding_shares_date, held_at_dtc, dtc_shares_date,
             public_float, public_float_date, previous_close_price, profile_verified, profile_verified_date,
-            latest_filing_type, latest_filing_date, latest_filing_url, is_caveat_emptor, news_str
+            latest_filing_type, latest_filing_date, latest_filing_url, is_caveat_emptor, news_str,
+            user_note  # Add the user's note to the row data
         ]
+
         # Add the data to the watchlist
         sheet.append_row(row_data)
-        await query.message.reply_text(f"{ticker} has been added to your watchlist with all available information!")
-        # We're not deleting the ticker data from the global dictionary anymore
+        await update.message.reply_text(f"{ticker} has been added to your watchlist with your note!")
     except Exception as e:
         logger.error(f"Error adding {ticker} to watchlist: {str(e)}")
-        await query.message.reply_text(f"An error occurred while adding {ticker} to the watchlist. Please try again later.")
+        await update.message.reply_text(f"An error occurred while adding {ticker} to the watchlist. Please try again later.")
+    
+    return ConversationHandler.END
+
+# Add a cancel command to allow users to exit the conversation
+async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    await update.message.reply_text("Operation cancelled.")
+    return ConversationHandler.END
+
 
 async def analyze_report_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
@@ -644,6 +681,15 @@ def main() -> None:
     application.add_handler(CallbackQueryHandler(analyze_report_button, pattern="^analyze_report_"))
     application.add_handler(CallbackQueryHandler(send_to_webhook, pattern="^send_webhook_"))
     application.run_polling(poll_interval=1.0)  # Increase polling interval
+    conv_handler = ConversationHandler(
+        entry_points=[CallbackQueryHandler(add_to_watchlist, pattern="^add_watchlist_")],
+        states={
+            WAITING_FOR_NOTE: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_note_and_add_to_watchlist)],
+        },
+        fallbacks=[CommandHandler("cancel", cancel)],
+    )
+
+    application.add_handler(conv_handler)
 
 if __name__ == "__main__":
     main()
