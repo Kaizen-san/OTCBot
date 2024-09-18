@@ -682,7 +682,7 @@ def main() -> None:
     conv_handler = ConversationHandler(
         entry_points=[CallbackQueryHandler(add_to_watchlist, pattern="^add_watchlist_")],
         states={
-            WAITING_FOR_NOTE: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_note_and_add_watchlist)],
+            WAITING_FOR_NOTE: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_note_and_add_to_watchlist)],  # Corrected function name
         },
         fallbacks=[CommandHandler("cancel", cancel)],
         per_message=False,
@@ -700,8 +700,6 @@ def main() -> None:
     application.add_handler(CommandHandler("wl", view_watchlist))
     application.add_handler(CallbackQueryHandler(analyze_report_button, pattern="^analyze_report_"))
     application.add_handler(CallbackQueryHandler(send_to_webhook, pattern="^send_webhook_"))
-
-    # Remove the general MessageHandler for log_all_messages
 
     logger.info("Handlers added successfully")
 
