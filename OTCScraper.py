@@ -115,6 +115,8 @@ async def get_watchlist(user_id):
         return []
 
 
+async def log_all_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logger.debug(f"Received message: {update.message.text}")
 
 async def view_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.debug("Received /wl command")
@@ -146,12 +148,14 @@ async def add_to_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     return WAITING_FOR_NOTE
 
 async def save_note_and_add_to_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    logger.debug("save_note_and_add_to_watchlist function called")
     global ticker_data
     user_note = update.message.text
     ticker = context.user_data.get('current_ticker')
     user_id = update.effective_user.id
     username = update.effective_user.username or "Unknown"
-    
+    logger.debug(f"Received note for ticker {ticker}: {user_note}")
+
     if not ticker:
         await update.message.reply_text("Sorry, there was an error. Please try adding the stock again.")
         return ConversationHandler.END
@@ -676,6 +680,7 @@ def main() -> None:
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("info", info))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, log_all_messages))
     application.add_handler(CommandHandler("wl", view_watchlist))
     application.add_handler(CallbackQueryHandler(add_to_watchlist, pattern="^add_watchlist_"))
     application.add_handler(CallbackQueryHandler(analyze_report_button, pattern="^analyze_report_"))
