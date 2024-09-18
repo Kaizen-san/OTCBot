@@ -152,6 +152,7 @@ async def save_note_and_add_to_watchlist(update: Update, context: ContextTypes.D
     logger.info(f"Received note for ticker {ticker}: {user_note}")
 
     if not ticker:
+        logger.error("No ticker found in user_data")
         await update.message.reply_text("Sorry, there was an error. Please try adding the stock again.")
         return ConversationHandler.END
     
@@ -681,7 +682,7 @@ def main() -> None:
     conv_handler = ConversationHandler(
         entry_points=[CallbackQueryHandler(add_to_watchlist, pattern="^add_watchlist_")],
         states={
-            WAITING_FOR_NOTE: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_note_and_add_to_watchlist)],
+            WAITING_FOR_NOTE: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_note_and_add_watchlist)],
         },
         fallbacks=[CommandHandler("cancel", cancel)],
         per_message=False,
@@ -690,16 +691,17 @@ def main() -> None:
 
     logger.info("Adding handlers...")
 
-    # Add handlers
+    # Add ConversationHandler first
+    application.add_handler(conv_handler)
+
+    # Add other handlers
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("info", info))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, log_all_messages))
     application.add_handler(CommandHandler("wl", view_watchlist))
     application.add_handler(CallbackQueryHandler(analyze_report_button, pattern="^analyze_report_"))
     application.add_handler(CallbackQueryHandler(send_to_webhook, pattern="^send_webhook_"))
-    
-    # Add ConversationHandler
-    application.add_handler(conv_handler)
+
+    # Remove the general MessageHandler for log_all_messages
 
     logger.info("Handlers added successfully")
 
