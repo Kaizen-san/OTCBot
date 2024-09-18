@@ -673,25 +673,33 @@ async def rate_limited_request(method, *args, **kwargs):
     return await method(*args, **kwargs)
 
 def main() -> None:
+    # Define states
+    WAITING_FOR_NOTE = 1
 
+    # Create ConversationHandler
+    conv_handler = ConversationHandler(
+        entry_points=[CallbackQueryHandler(add_to_watchlist, pattern="^add_watchlist_")],
+        states={
+            WAITING_FOR_NOTE: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_note_and_add_to_watchlist)],
+        },
+        fallbacks=[CommandHandler("cancel", cancel)],
+        per_message=True,
+        per_chat=True
+    )
+
+    # Add handlers
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("info", info))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, log_all_messages))
     application.add_handler(CommandHandler("wl", view_watchlist))
-    application.add_handler(CallbackQueryHandler(add_to_watchlist, pattern="^add_watchlist_"))
     application.add_handler(CallbackQueryHandler(analyze_report_button, pattern="^analyze_report_"))
     application.add_handler(CallbackQueryHandler(send_to_webhook, pattern="^send_webhook_"))
-    application.run_polling(poll_interval=1.0)  # Increase polling interval
-    conv_handler = ConversationHandler(
-    entry_points=[CallbackQueryHandler(add_to_watchlist, pattern="^add_watchlist_")],
-    states={
-        WAITING_FOR_NOTE: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_note_and_add_to_watchlist)],
-    },
-    fallbacks=[CommandHandler("cancel", cancel)],
-    per_message=True,
-    per_chat=True
-    )
+    
+    # Add ConversationHandler
     application.add_handler(conv_handler)
+
+    # Start the bot
+    application.run_polling(poll_interval=1.0)
 
 if __name__ == "__main__":
     main()
