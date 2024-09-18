@@ -26,8 +26,6 @@ import tenacity
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 
-
-
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -132,15 +130,11 @@ async def view_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 async def add_to_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    global ticker_data
     query = update.callback_query
     await query.answer()
     ticker = query.data.split('_')[-1]
-    user_id = update.effective_user.id
-    username = update.effective_user.username or "Unknown"
-    logger.debug(f"Adding {ticker} to watchlist for user {user_id}")
     
-    # Store the ticker in context for later use
+    logger.debug(f"Adding {ticker} to watchlist and waiting for note")
     context.user_data['current_ticker'] = ticker
     
     await query.message.reply_text(f"Adding {ticker} to your watchlist. Please enter a note about why you're adding this stock:")
@@ -687,13 +681,14 @@ def main() -> None:
     application.add_handler(CallbackQueryHandler(send_to_webhook, pattern="^send_webhook_"))
     application.run_polling(poll_interval=1.0)  # Increase polling interval
     conv_handler = ConversationHandler(
-        entry_points=[CallbackQueryHandler(add_to_watchlist, pattern="^add_watchlist_")],
-        states={
-            WAITING_FOR_NOTE: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_note_and_add_to_watchlist)],
-        },
-        fallbacks=[CommandHandler("cancel", cancel)],
+    entry_points=[CallbackQueryHandler(add_to_watchlist, pattern="^add_watchlist_")],
+    states={
+        WAITING_FOR_NOTE: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_note_and_add_to_watchlist)],
+    },
+    fallbacks=[CommandHandler("cancel", cancel)],
+    per_message=False,
+    per_chat=True
     )
-
     application.add_handler(conv_handler)
 
 if __name__ == "__main__":
