@@ -685,7 +685,7 @@ def main() -> None:
             WAITING_FOR_NOTE: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_note_and_add_to_watchlist)],  # Corrected function name
         },
         fallbacks=[CommandHandler("cancel", cancel)],
-        per_message=True,
+        per_message=False,
         per_chat=True
     )
 
