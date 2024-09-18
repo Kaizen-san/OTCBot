@@ -133,8 +133,9 @@ async def add_to_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     query = update.callback_query
     await query.answer()
     ticker = query.data.split('_')[-1]
+    user_id = update.effective_user.id
     
-    logger.debug(f"Adding {ticker} to watchlist and waiting for note")
+    logger.debug(f"Adding {ticker} to watchlist for user {user_id}")
     context.user_data['current_ticker'] = ticker
     
     await query.message.reply_text(f"Adding {ticker} to your watchlist. Please enter a note about why you're adding this stock:")
@@ -142,8 +143,8 @@ async def add_to_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     return WAITING_FOR_NOTE
 
 async def save_note_and_add_to_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    logger.debug("save_note_and_add_to_watchlist function called")
     global ticker_data
+    logger.debug("save_note_and_add_to_watchlist function called")
     user_note = update.message.text
     ticker = context.user_data.get('current_ticker')
     user_id = update.effective_user.id
@@ -205,6 +206,7 @@ async def save_note_and_add_to_watchlist(update: Update, context: ContextTypes.D
 
         # Add the data to the watchlist
         sheet.append_row(row_data)
+        logger.info(f"Successfully added {ticker} to watchlist for user {user_id} with note: {user_note}")
         await update.message.reply_text(f"{ticker} has been added to your watchlist with your note!")
     except Exception as e:
         logger.error(f"Error adding {ticker} to watchlist: {str(e)}")
