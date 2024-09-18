@@ -106,12 +106,11 @@ async def get_watchlist(user_id):
     try:
         # Find all rows where the user_id matches
         cell_list = sheet.findall(str(user_id), in_column=2)
-        watchlist = [sheet.cell(cell.row, 1).value for cell in cell_list]
+        watchlist = [(sheet.cell(cell.row, 1).value, sheet.cell(cell.row, 20).value) for cell in cell_list]
         return watchlist
     except Exception as e:
         logger.error(f"Error fetching watchlist: {str(e)}")
         return []
-
 
 async def log_all_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.debug(f"Received message: {update.message.text}")
@@ -122,7 +121,7 @@ async def view_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     watchlist = await get_watchlist(user_id)
     
     if watchlist:
-        watchlist_text = "Your current watchlist:\n" + "\n".join([f"${ticker}" for ticker in watchlist])
+        watchlist_text = "Your current watchlist:\n" + "\n".join([f"${ticker} - {note}" for ticker, note in watchlist])
     else:
         watchlist_text = "Your watchlist is empty."
     
