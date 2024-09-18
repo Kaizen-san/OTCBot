@@ -135,21 +135,21 @@ async def add_to_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     ticker = query.data.split('_')[-1]
     user_id = update.effective_user.id
     
-    logger.debug(f"Adding {ticker} to watchlist for user {user_id}")
+    logger.info(f"Adding {ticker} to watchlist for user {user_id}")
     context.user_data['current_ticker'] = ticker
     
     await query.message.reply_text(f"Adding {ticker} to your watchlist. Please enter a note about why you're adding this stock:")
     
+    logger.info(f"Entering WAITING_FOR_NOTE state for {ticker}")
     return WAITING_FOR_NOTE
 
 async def save_note_and_add_to_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    global ticker_data
-    logger.debug("save_note_and_add_to_watchlist function called")
+    logger.info("save_note_and_add_to_watchlist function called")
     user_note = update.message.text
     ticker = context.user_data.get('current_ticker')
     user_id = update.effective_user.id
     username = update.effective_user.username or "Unknown"
-    logger.debug(f"Received note for ticker {ticker}: {user_note}")
+    logger.info(f"Received note for ticker {ticker}: {user_note}")
 
     if not ticker:
         await update.message.reply_text("Sorry, there was an error. Please try adding the stock again.")
@@ -673,8 +673,9 @@ async def rate_limited_request(method, *args, **kwargs):
     return await method(*args, **kwargs)
 
 def main() -> None:
-    # Define states
-    WAITING_FOR_NOTE = 1
+    global application  # Make sure 'application' is global
+
+    logger.info("Setting up application...")
 
     # Create ConversationHandler
     conv_handler = ConversationHandler(
@@ -683,9 +684,11 @@ def main() -> None:
             WAITING_FOR_NOTE: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_note_and_add_to_watchlist)],
         },
         fallbacks=[CommandHandler("cancel", cancel)],
-        per_message=True,
+        per_message=False,
         per_chat=True
     )
+
+    logger.info("Adding handlers...")
 
     # Add handlers
     application.add_handler(CommandHandler("start", start))
@@ -698,8 +701,12 @@ def main() -> None:
     # Add ConversationHandler
     application.add_handler(conv_handler)
 
+    logger.info("Handlers added successfully")
+
     # Start the bot
+    logger.info("Starting the bot...")
     application.run_polling(poll_interval=1.0)
+    logger.info("Bot started successfully")
 
 if __name__ == "__main__":
     main()
