@@ -687,6 +687,10 @@ async def rate_limited_request(method, *args, **kwargs):
         await asyncio.sleep(0.1)
     return await method(*args, **kwargs)
 
+async def post_init(application: Application) -> None:
+    """Post initialization hook for the bot."""
+    await setup_commands(application.bot)
+
 def main() -> None:
     global application  # Make sure 'application' is global
 
@@ -718,11 +722,8 @@ def main() -> None:
        # Add a new message handler for processing ticker symbols
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, info))
 
-     # Set up bot commands
-    asyncio.get_event_loop().run_until_complete(setup_commands(application.bot))
-
-    # Set up bot commands
-    asyncio.run(setup_commands(application.bot))
+        # Set up post-init hook
+    application.post_init = post_init
 
     logger.info("Handlers added successfully")
 
