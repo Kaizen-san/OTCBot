@@ -593,11 +593,11 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             ],
             [
                 InlineKeyboardButton("Get the 20 most recent Tweets", callback_data=f"send_webhook_{ticker}")
-            ]
+            ],
             [
                 InlineKeyboardButton("X Menu", callback_data="menu")
             ]
-           ]
+        ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
 
