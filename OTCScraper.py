@@ -102,14 +102,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 # Add a function to set up the bot commands
-async def setup_commands(application: Application) -> None:
+async def setup_commands(bot):
     commands = [
         BotCommand("start", "Start the bot"),
         BotCommand("info", "Get stock information (usage: /info <TICKER>)"),
         BotCommand("wl", "View your watchlist"),
         BotCommand("premium", "Manage premium status and subscription"),
     ]
-        await bot.set_my_commands(commands)
+    await bot.set_my_commands(commands)
 
 async def get_watchlist(user_id):
     try:
@@ -717,6 +717,9 @@ def main() -> None:
 
        # Add a new message handler for processing ticker symbols
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, info))
+
+     # Set up bot commands
+    asyncio.get_event_loop().run_until_complete(setup_commands(application.bot))
 
     # Set up bot commands
     asyncio.run(setup_commands(application.bot))
