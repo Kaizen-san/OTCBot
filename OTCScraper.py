@@ -681,6 +681,20 @@ async def rate_limited_request(method, *args, **kwargs):
         await asyncio.sleep(0.1)
     return await method(*args, **kwargs)
 
+async def menu_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+
+    menu_text = (
+        "Menu Options:\n"
+        "/premium - Manage premium status and subscription\n"
+        "/hmbl - Get links to private channels\n"
+        "/changelog - Learn more about recent updates\n"
+        "/terms - Term of Use, Privacy Policy, Disclaimer"
+    )
+
+    await query.edit_message_text(text=menu_text, parse_mode=ParseMode.HTML)
+
 def main() -> None:
     global application  # Make sure 'application' is global
 
