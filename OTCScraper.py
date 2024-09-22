@@ -106,10 +106,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 # New function to set up the persistent keyboard
-async def set_persistent_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    keyboard = [[KeyboardButton("X Menu")]]
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-    await update.message.reply_text("Menu set up.", reply_markup=reply_markup)
+async def set_menu_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    keyboard = [[InlineKeyboardButton("X Menu", callback_data="menu")]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text("Use the menu button for options:", reply_markup=reply_markup)
 
 
 async def get_watchlist(user_id):
