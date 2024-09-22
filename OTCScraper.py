@@ -109,7 +109,7 @@ async def setup_commands(application: Application) -> None:
         BotCommand("wl", "View your watchlist"),
         BotCommand("premium", "Manage premium status and subscription"),
     ]
-    await application.bot.set_my_commands(commands)
+        await bot.set_my_commands(commands)
 
 async def get_watchlist(user_id):
     try:
@@ -718,7 +718,8 @@ def main() -> None:
        # Add a new message handler for processing ticker symbols
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, info))
 
-    application.job_queue.run_once(setup_commands, when=1)
+    # Set up bot commands
+    asyncio.run(setup_commands(application.bot))
 
     logger.info("Handlers added successfully")
 
