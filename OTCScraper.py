@@ -97,12 +97,17 @@ def custom_escape_html(text):
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.debug("Received /start command")
-    await set_persistent_menu(update, context)
+    
+    # Create a persistent keyboard with a menu button
+    keyboard = [[KeyboardButton("≡ Menu")]]
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    
     await update.message.reply_text(
         "Hello! Here are the available commands:\n"
         "/info <TICKER> - Get stock information\n"
         "/wl - View your watchlist\n"
-        "Or simply type any ticker symbol to get information."
+        "Or simply type any ticker symbol to get information.",
+        reply_markup=reply_markup
     )
 
 # New function to set up the persistent keyboard
@@ -689,9 +694,6 @@ async def rate_limited_request(method, *args, **kwargs):
     return await method(*args, **kwargs)
 
 async def menu_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    await query.answer()
-
     menu_text = (
         "Menu Options:\n"
         "/premium - Manage premium status and subscription\n"
@@ -699,6 +701,8 @@ async def menu_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         "/wl - View your watchlist\n"
         "Or simply type any ticker symbol to get information."
     )
+
+    await update.message.reply_text(text=menu_text, parse_mode=ParseMode.HTML)
 
     await query.edit_message_text(text=menu_text, parse_mode=ParseMode.HTML)
 
@@ -735,6 +739,10 @@ def main() -> None:
 
     # Add a new callback query handler for the menu button
     application.add_handler(CallbackQueryHandler(menu_button, pattern="^menu$"))
+
+    # Add a handler for the persistent menu button
+    application.add_handler(MessageHandler(filters.Regex("^≡ Menu$"), menu_button))
+
 
     logger.info("Handlers added successfully")
 
