@@ -421,11 +421,17 @@ async def send_to_webhook(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     global ticker_data
-    ticker = context.args[0].upper() if context.args else None
-    logger.debug("Received /info command with args: %s", context.args)
+    
+    # Check if the message is a command or just a ticker
+    if update.message.text.startswith('/'):
+        ticker = context.args[0].upper() if context.args else None
+    else:
+        ticker = update.message.text.upper()
+    
+    logger.debug("Received info request for ticker: %s", ticker)
     
     if not ticker:
-        await update.message.reply_text("Please provide a ticker symbol. Usage: /info <TICKER>")
+        await update.message.reply_text("Please provide a ticker symbol.")
         return
 
     max_retries = 3
@@ -588,6 +594,9 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             [
                 InlineKeyboardButton("Get the 20 most recent Tweets", callback_data=f"send_webhook_{ticker}")
             ]
+            [
+                InlineKeyboardButton("X Menu", callback_data="menu")
+            ]
            ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -699,6 +708,12 @@ def main() -> None:
     application.add_handler(CommandHandler("wl", view_watchlist))
     application.add_handler(CallbackQueryHandler(analyze_report_button, pattern="^analyze_report_"))
     application.add_handler(CallbackQueryHandler(send_to_webhook, pattern="^send_webhook_"))
+
+       # Add a new message handler for processing ticker symbols
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, info))
+
+    # Add a new callback query handler for the menu button
+    application.add_handler(CallbackQueryHandler(menu_button, pattern="^menu$"))
 
     logger.info("Handlers added successfully")
 
