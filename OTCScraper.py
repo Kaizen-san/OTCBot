@@ -1,5 +1,5 @@
 import requests
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton, BotCommand
 from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler, ConversationHandler, MessageHandler, filters
 import logging
 from datetime import datetime
@@ -97,19 +97,19 @@ def custom_escape_html(text):
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.debug("Received /start command")
-    
-    # Create a persistent keyboard with a menu button
-    keyboard = [[KeyboardButton("≡ Menu")]]
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-    
     await update.message.reply_text(
-        "Hello! Here are the available commands:\n"
-        "/info <TICKER> - Get stock information\n"
-        "/wl - View your watchlist\n"
-        "Or simply type any ticker symbol to get information.",
-        reply_markup=reply_markup
+        "Hello! Use the menu button to access available commands or simply type any ticker symbol to get information."
     )
 
+# Add a function to set up the bot commands
+async def setup_commands(application: Application) -> None:
+    commands = [
+        BotCommand("start", "Start the bot"),
+        BotCommand("info", "Get stock information (usage: /info <TICKER>)"),
+        BotCommand("wl", "View your watchlist"),
+        BotCommand("premium", "Manage premium status and subscription"),
+    ]
+    await application.bot.set_my_commands(commands)
 
 async def get_watchlist(user_id):
     try:
@@ -687,19 +687,6 @@ async def rate_limited_request(method, *args, **kwargs):
         await asyncio.sleep(0.1)
     return await method(*args, **kwargs)
 
-async def menu_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    menu_text = (
-        "Menu Options:\n"
-        "/premium - Manage premium status and subscription\n"
-        "/info <TICKER> - Get stock information\n"
-        "/wl - View your watchlist\n"
-        "Or simply type any ticker symbol to get information."
-    )
-
-    await update.message.reply_text(text=menu_text, parse_mode=ParseMode.HTML)
-
-    await query.edit_message_text(text=menu_text, parse_mode=ParseMode.HTML)
-
 def main() -> None:
     global application  # Make sure 'application' is global
 
@@ -731,12 +718,7 @@ def main() -> None:
        # Add a new message handler for processing ticker symbols
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, info))
 
-    # Add a new callback query handler for the menu button
-    application.add_handler(CallbackQueryHandler(menu_button, pattern="^menu$"))
-
-    # Add a handler for the persistent menu button
-    application.add_handler(MessageHandler(filters.Regex("^≡ Menu$"), menu_button))
-
+    application.job_queue.run_once(setup_commands, when=1)
 
     logger.info("Handlers added successfully")
 
