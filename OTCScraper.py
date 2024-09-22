@@ -1,5 +1,5 @@
 import requests
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler, ConversationHandler, MessageHandler, filters
 import logging
 from datetime import datetime
@@ -97,11 +97,21 @@ def custom_escape_html(text):
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.debug("Received /start command")
+    await set_persistent_menu(update, context)
     await update.message.reply_text(
         "Hello! Here are the available commands:\n"
         "/info <TICKER> - Get stock information\n"
-        "/wl - View your watchlist"
+        "/wl - View your watchlist\n"
+        "Or simply type any ticker symbol to get information."
     )
+
+# New function to set up the persistent keyboard
+async def set_persistent_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    keyboard = [[KeyboardButton("X Menu")]]
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    await update.message.reply_text("Menu set up.", reply_markup=reply_markup)
+
+
 async def get_watchlist(user_id):
     try:
         # Find all rows where the user_id matches
@@ -593,9 +603,6 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             ],
             [
                 InlineKeyboardButton("Get the 20 most recent Tweets", callback_data=f"send_webhook_{ticker}")
-            ],
-            [
-                InlineKeyboardButton("X Menu", callback_data="menu")
             ]
         ]
         
@@ -688,9 +695,9 @@ async def menu_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     menu_text = (
         "Menu Options:\n"
         "/premium - Manage premium status and subscription\n"
-        "/hmbl - Get links to private channels\n"
-        "/changelog - Learn more about recent updates\n"
-        "/terms - Term of Use, Privacy Policy, Disclaimer"
+        "/info <TICKER> - Get stock information\n"
+        "/wl - View your watchlist\n"
+        "Or simply type any ticker symbol to get information."
     )
 
     await query.edit_message_text(text=menu_text, parse_mode=ParseMode.HTML)
