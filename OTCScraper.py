@@ -232,18 +232,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await update.message.reply_text("Operation cancelled.")
     return ConversationHandler.END
 
-async def scrape_tweets(url_or_username: str) -> list:
-    """
-    Scrape the 20 latest tweets from an X.com profile
-    """
-    # Ensure we have a full URL
-    if not url_or_username.startswith("https://"):
-        url = f"https://x.com/{url_or_username}"
-    else:
-        url = url_or_username
-    
-    logger.info(f"Attempting to scrape tweets from: {url}")
-    
+async def scrape_tweets(url: str) -> list:
     try:
         result = await SCRAPFLY.async_scrape(ScrapeConfig(
             url, 
@@ -251,74 +240,35 @@ async def scrape_tweets(url_or_username: str) -> list:
             wait_for_selector="[data-testid='tweet']"
         ))
         
-        logger.debug(f"Scrapfly response status: {result.status_code}")
-        
         _xhr_calls = result.scrape_result["browser_data"]["xhr_call"]
         tweet_calls = [f for f in _xhr_calls if "UserTweets" in f["url"]]
         
-        logger.debug(f"Found {len(tweet_calls)} UserTweets XHR calls")
-        
         tweets = []
         for xhr in tweet_calls:
-            if not xhr["response"]:
-                logger.warning("Empty response in XHR call")
-                continue
-            try:
+            if xhr["response"]:
                 data = json.loads(xhr["response"]["body"])
-                logger.debug(f"XHR data keys: {list(data.keys())}")
-                
-                # Log the entire data structure for debugging
-                logger.debug(f"Full XHR data: {json.dumps(data, indent=2)}")
-                
-                # Try to find the tweet entries in different possible locations
-                tweet_entries = None
-                if 'data' in data:
-                    if 'user' in data['data']:
-                        user_data = data['data']['user']['result']
-                        if 'timeline' in user_data:
-                            timeline = user_data['timeline']['timeline']
-                            if 'instructions' in timeline and len(timeline['instructions']) > 0:
-                                tweet_entries = timeline['instructions'][0].get('entries', [])
-                        elif 'timeline_v2' in user_data:
-                            timeline = user_data['timeline_v2']['timeline']
-                            if 'instructions' in timeline and len(timeline['instructions']) > 0:
-                                tweet_entries = timeline['instructions'][0].get('entries', [])
-                    elif 'tweet_results' in data['data']:
-                        # Handle case where data structure might be different
-                        tweet_entries = [{'content': {'itemContent': {'tweet_results': {'result': data['data']['tweet_results']['result']}}}}]
-                
-                if not tweet_entries:
-                    logger.warning(f"No tweet entries found in XHR response")
-                    continue
-                
-                logger.debug(f"Found {len(tweet_entries)} tweet entries")
-                
-                for entry in tweet_entries:
-                    if 'content' in entry and 'itemContent' in entry['content']:
-                        item_content = entry['content']['itemContent']
-                        if 'tweet_results' in item_content:
-                            tweet = item_content['tweet_results']['result']
-                            if 'legacy' in tweet:
-                                legacy = tweet['legacy']
-                                tweets.append({
-                                    'id': tweet.get('rest_id', ''),
-                                    'text': legacy.get('full_text', ''),
-                                    'created_at': legacy.get('created_at', ''),
-                                    'retweet_count': legacy.get('retweet_count', 0),
-                                    'favorite_count': legacy.get('favorite_count', 0)
-                                })
-                    else:
-                        logger.warning(f"Unexpected entry structure: {entry}")
-            except json.JSONDecodeError:
-                logger.error("Failed to parse JSON from XHR response")
-            except Exception as e:
-                logger.error(f"Error processing tweet data: {str(e)}")
-        
-        logger.info(f"Successfully scraped {len(tweets)} tweets")
+                if 'data' in data and 'user' in data['data']:
+                    user_data = data['data']['user']['result']
+                    if 'timeline' in user_data:
+                        timeline = user_data['timeline']['timeline']
+                        if 'instructions' in timeline and timeline['instructions']:
+                            entries = timeline['instructions'][0].get('entries', [])
+                            for entry in entries:
+                                if 'content' in entry and 'itemContent' in entry['content']:
+                                    item_content = entry['content']['itemContent']
+                                    if 'tweet_results' in item_content:
+                                        tweet = item_content['tweet_results']['result']
+                                        if 'legacy' in tweet:
+                                            legacy = tweet['legacy']
+                                            tweets.append({
+                                                'id': tweet.get('rest_id', ''),
+                                                'text': legacy.get('full_text', ''),
+                                                'created_at': legacy.get('created_at', ''),
+                                                'retweet_count': legacy.get('retweet_count', 0),
+                                                'favorite_count': legacy.get('favorite_count', 0)
+                                            })
         return tweets[:20]  # Return only the 20 latest tweets
-    
     except Exception as e:
-        logger.error(f"Error during scraping: {str(e)}")
         return []
 
 async def scrape_x_profile(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -327,60 +277,35 @@ async def scrape_x_profile(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     
     ticker = query.data.split('_')[-1]
     
-    # Retrieve the Twitter handle or URL from the stored profile data
-    twitter_info = ticker_data[ticker]['profile'].get("twitter", "N/A")
-    
-    if twitter_info == "N/A":
-        await query.edit_message_text(f"No Twitter information found for {ticker}.")
-        return
-    
-    # Determine if it's a handle or a full URL
-    if twitter_info.startswith("https://"):
-        twitter_url = twitter_info
-        username = twitter_info.split('/')[-1]
-    else:
-        username = twitter_info
-        twitter_url = f"https://x.com/{username}"
-    
     try:
-        logger.info(f"Attempting to scrape tweets for {ticker} from URL: {twitter_url}")
+        twitter_info = ticker_data[ticker]['profile'].get("twitter", "N/A")
+        
+        if twitter_info == "N/A":
+            await query.edit_message_text(f"No Twitter information found for {ticker}.")
+            return
+        
+        twitter_url = twitter_info if twitter_info.startswith("https://") else f"https://x.com/{twitter_info}"
+        username = twitter_info.split('/')[-1] if twitter_info.startswith("https://") else twitter_info
+        
         tweets = await scrape_tweets(twitter_url)
         
         if tweets:
-            tweet_info = f"Latest 20 tweets from @{username} for {ticker}:\n\n"
-            for i, tweet in enumerate(tweets, 1):
+            tweet_info = f"Latest tweets from @{username} for {ticker}:\n\n"
+            for i, tweet in enumerate(tweets[:5], 1):  # Limit to 5 tweets to reduce message size
                 tweet_url = f"https://x.com/{username}/status/{tweet['id']}"
-                tweet_text = tweet['text'][:100] + "..." if len(tweet['text']) > 100 else tweet['text']
-                tweet_info += (f"{i}. <a href='{tweet_url}'>{tweet_text}</a>\n"
-                               f"   🗓 {tweet['created_at']} | 🔁 {tweet['retweet_count']} | ❤️ {tweet['favorite_count']}\n\n")
+                tweet_text = tweet['text'][:50] + "..." if len(tweet['text']) > 50 else tweet['text']
+                tweet_info += f"{i}. <a href='{tweet_url}'>{tweet_text}</a>\n"
             
-            # Split the message if it's too long
-            if len(tweet_info) > 4096:
-                for i in range(0, len(tweet_info), 4096):
-                    await context.bot.send_message(
-                        chat_id=update.effective_chat.id,
-                        text=tweet_info[i:i+4096],
-                        parse_mode=ParseMode.HTML,
-                        disable_web_page_preview=True
-                    )
-            else:
-                await query.edit_message_text(
-                    text=tweet_info,
-                    parse_mode=ParseMode.HTML,
-                    disable_web_page_preview=True
-                )
-        else:
-            logger.warning(f"No tweets found for {ticker} (@{username})")
             await query.edit_message_text(
-                f"No tweets found for {ticker} (@{username}). "
-                "The account might be private, have no tweets, or there might be an issue with data retrieval."
+                text=tweet_info,
+                parse_mode=ParseMode.HTML,
+                disable_web_page_preview=True
             )
+        else:
+            await query.edit_message_text(f"No recent tweets found for {ticker} (@{username}).")
     except Exception as e:
-        logger.error(f"Error scraping X.com tweets for {ticker} (@{username}): {str(e)}")
-        await query.edit_message_text(
-            f"An error occurred while fetching tweets for {ticker} (@{username}). "
-            f"Error: {str(e)}\n\nPlease try again later or contact support if the issue persists."
-        )
+        error_message = f"An error occurred while fetching tweets for {ticker}. Please try again later."
+        await query.edit_message_text(error_message)
 
 async def analyze_report_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
