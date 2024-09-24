@@ -290,7 +290,7 @@ async def scrape_tweets(url: str) -> list:
         tweet['created_at'] = tweet['created_at'].strftime('%Y-%m-%d %H:%M:%S')
     
     print(f"Extracted and sorted {len(all_tweets)} tweets")
-    return all_tweets  # Return all tweets instead of limiting to 50
+    return all_tweets  # Return all tweets without limiting
 
 async def scrape_x_profile(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
