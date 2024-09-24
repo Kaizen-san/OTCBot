@@ -263,7 +263,7 @@ async def scrape_x_profile(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         await query.edit_message_text(f"No Twitter handle found for {ticker}.")
         return
     
-    x_url = f"https://x.com/{twitter_handle}"
+    x_url = f"{twitter_handle}"
     
     try:
         profile_data = await scrape_tweet(x_url)
