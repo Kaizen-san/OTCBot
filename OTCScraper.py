@@ -309,25 +309,16 @@ async def scrape_x_profile(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         
         if tweets:
             username = twitter_url.split('/')[-1]
-            tweet_info = f"Latest tweets from @{username} for {ticker}:\n\n"
+            tweet_info = f"Latest tweets from <a href='{twitter_url}'>@{username}</a> for {ticker}:\n\n"
             
-            # Group tweets by date
-            tweet_groups = {}
-            for tweet in tweets[:20]:  # Process up to 20 tweets
+            for tweet in tweets[:10]:  # Display up to 10 tweets
                 date = tweet['created_at'].split()[0]
-                if date not in tweet_groups:
-                    tweet_groups[date] = []
-                tweet_groups[date].append(tweet)
-            
-            # Display tweets grouped by date
-            for date, group in list(tweet_groups.items())[:5]:  # Display up to 5 dates
-                tweet_info += f"{date}:\n"
-                for tweet in group[:3]:  # Display up to 3 tweets per date
-                    tweet_url = f"{twitter_url}/status/{tweet['id']}"
-                    tweet_text = tweet['text'][:50] + "..." if len(tweet['text']) > 50 else tweet['text']
-                    tweet_text = tweet_text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-                    tweet_info += (f"- <a href='{tweet_url}'>{tweet_text}</a>\n"
-                                   f"  🔁 {tweet['retweet_count']} | ❤️ {tweet['favorite_count']}\n\n")
+                tweet_url = f"{twitter_url}/status/{tweet['id']}"
+                tweet_text = tweet['text'][:150] + "..." if len(tweet['text']) > 150 else tweet['text']
+                tweet_text = tweet_text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                tweet_info += (f"<b>{date}</b>\n"
+                               f"<a href='{tweet_url}'>{tweet_text}</a>\n"
+                               f"🔁 {tweet['retweet_count']} | ❤️ {tweet['favorite_count']}\n\n")
             
             # Ensure the message doesn't exceed Telegram's limit
             if len(tweet_info) > 4096:
