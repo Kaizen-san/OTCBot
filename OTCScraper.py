@@ -267,18 +267,25 @@ async def scrape_tweets(url_or_username: str) -> list:
                 data = json.loads(xhr["response"]["body"])
                 logger.debug(f"XHR data keys: {list(data.keys())}")
                 
+                # Log the entire data structure for debugging
+                logger.debug(f"Full XHR data: {json.dumps(data, indent=2)}")
+                
                 # Try to find the tweet entries in different possible locations
                 tweet_entries = None
-                if 'data' in data and 'user' in data['data']:
-                    user_data = data['data']['user']['result']
-                    if 'timeline' in user_data:
-                        timeline = user_data['timeline']['timeline']
-                        if 'instructions' in timeline and len(timeline['instructions']) > 0:
-                            tweet_entries = timeline['instructions'][0].get('entries', [])
-                    elif 'timeline_v2' in user_data:
-                        timeline = user_data['timeline_v2']['timeline']
-                        if 'instructions' in timeline and len(timeline['instructions']) > 0:
-                            tweet_entries = timeline['instructions'][0].get('entries', [])
+                if 'data' in data:
+                    if 'user' in data['data']:
+                        user_data = data['data']['user']['result']
+                        if 'timeline' in user_data:
+                            timeline = user_data['timeline']['timeline']
+                            if 'instructions' in timeline and len(timeline['instructions']) > 0:
+                                tweet_entries = timeline['instructions'][0].get('entries', [])
+                        elif 'timeline_v2' in user_data:
+                            timeline = user_data['timeline_v2']['timeline']
+                            if 'instructions' in timeline and len(timeline['instructions']) > 0:
+                                tweet_entries = timeline['instructions'][0].get('entries', [])
+                    elif 'tweet_results' in data['data']:
+                        # Handle case where data structure might be different
+                        tweet_entries = [{'content': {'itemContent': {'tweet_results': {'result': data['data']['tweet_results']['result']}}}}]
                 
                 if not tweet_entries:
                     logger.warning(f"No tweet entries found in XHR response")
@@ -300,6 +307,8 @@ async def scrape_tweets(url_or_username: str) -> list:
                                     'retweet_count': legacy.get('retweet_count', 0),
                                     'favorite_count': legacy.get('favorite_count', 0)
                                 })
+                    else:
+                        logger.warning(f"Unexpected entry structure: {entry}")
             except json.JSONDecodeError:
                 logger.error("Failed to parse JSON from XHR response")
             except Exception as e:
@@ -334,6 +343,7 @@ async def scrape_x_profile(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         twitter_url = f"https://x.com/{username}"
     
     try:
+        logger.info(f"Attempting to scrape tweets for {ticker} from URL: {twitter_url}")
         tweets = await scrape_tweets(twitter_url)
         
         if tweets:
@@ -360,10 +370,17 @@ async def scrape_x_profile(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                     disable_web_page_preview=True
                 )
         else:
-            await query.edit_message_text(f"No tweets found for {ticker} (@{username}).")
+            logger.warning(f"No tweets found for {ticker} (@{username})")
+            await query.edit_message_text(
+                f"No tweets found for {ticker} (@{username}). "
+                "The account might be private, have no tweets, or there might be an issue with data retrieval."
+            )
     except Exception as e:
-        logger.error(f"Error scraping X.com tweets: {str(e)}")
-        await query.edit_message_text(f"An error occurred while fetching tweets for {ticker} (@{username}).")
+        logger.error(f"Error scraping X.com tweets for {ticker} (@{username}): {str(e)}")
+        await query.edit_message_text(
+            f"An error occurred while fetching tweets for {ticker} (@{username}). "
+            f"Error: {str(e)}\n\nPlease try again later or contact support if the issue persists."
+        )
 
 async def analyze_report_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
