@@ -232,23 +232,34 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await update.message.reply_text("Operation cancelled.")
     return ConversationHandler.END
 
-async def scrape_tweet(url: str) -> dict:
+async def scrape_tweets(url: str) -> list:
     """
-    Scrape a X.com profile details e.g.: https://x.com/Scrapfly_dev
+    Scrape the 20 latest tweets from an X.com profile
     """
     result = await SCRAPFLY.async_scrape(ScrapeConfig(
         url, 
-        render_js=True,  # enable headless browser
-        wait_for_selector="[data-testid='primaryColumn']"  # wait for page to finish loading 
+        render_js=True,
+        wait_for_selector="[data-testid='tweet']"
     ))
-    # capture background requests and extract ones that request Tweet data
     _xhr_calls = result.scrape_result["browser_data"]["xhr_call"]
-    tweet_call = [f for f in _xhr_calls if "UserBy" in f["url"]]
-    for xhr in tweet_call:
+    tweet_calls = [f for f in _xhr_calls if "UserTweets" in f["url"]]
+    tweets = []
+    for xhr in tweet_calls:
         if not xhr["response"]:
             continue
         data = json.loads(xhr["response"]["body"])
-        return data['data']['user']['result']
+        tweet_entries = data['data']['user']['result']['timeline']['timeline']['instructions'][0]['entries']
+        for entry in tweet_entries:
+            if 'tweet' in entry['content']['itemContent']:
+                tweet = entry['content']['itemContent']['tweet_results']['result']
+                tweets.append({
+                    'id': tweet['rest_id'],
+                    'text': tweet['legacy']['full_text'],
+                    'created_at': tweet['legacy']['created_at'],
+                    'retweet_count': tweet['legacy']['retweet_count'],
+                    'favorite_count': tweet['legacy']['favorite_count']
+                })
+    return tweets[:20]  # Return only the 20 latest tweets
 
 async def scrape_x_profile(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
@@ -266,34 +277,36 @@ async def scrape_x_profile(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     x_url = f"{twitter_handle}"
     
     try:
-        profile_data = await scrape_tweet(x_url)
+        tweets = await scrape_tweets(x_url)
         
-        if profile_data:
-            # Extract relevant information from the profile data
-            name = profile_data.get('legacy', {}).get('name', 'N/A')
-            screen_name = profile_data.get('legacy', {}).get('screen_name', 'N/A')
-            description = profile_data.get('legacy', {}).get('description', 'N/A')
-            followers_count = profile_data.get('legacy', {}).get('followers_count', 'N/A')
-            friends_count = profile_data.get('legacy', {}).get('friends_count', 'N/A')
-            statuses_count = profile_data.get('legacy', {}).get('statuses_count', 'N/A')
+        if tweets:
+            tweet_info = f"Latest 20 tweets from {twitter_handle} for {ticker}:\n\n"
+            for i, tweet in enumerate(tweets, 1):
+                tweet_url = f"https://x.com/{twitter_handle}/status/{tweet['id']}"
+                tweet_text = tweet['text'][:100] + "..." if len(tweet['text']) > 100 else tweet['text']
+                tweet_info += (f"{i}. <a href='{tweet_url}'>{tweet_text}</a>\n"
+                               f"   🗓 {tweet['created_at']} | 🔁 {tweet['retweet_count']} | ❤️ {tweet['favorite_count']}\n\n")
             
-            profile_info = (
-                f"X.com Profile for {ticker}:\n\n"
-                f"Name: {name}\n"
-                f"Handle: @{screen_name}\n"
-                f"Bio: {description}\n"
-                f"Followers: {followers_count}\n"
-                f"Following: {friends_count}\n"
-                f"Total Tweets: {statuses_count}\n\n"
-                f"Profile URL: {x_url}"
-            )
-            
-            await query.edit_message_text(profile_info, parse_mode=ParseMode.HTML)
+            # Split the message if it's too long
+            if len(tweet_info) > 4096:
+                for i in range(0, len(tweet_info), 4096):
+                    await context.bot.send_message(
+                        chat_id=update.effective_chat.id,
+                        text=tweet_info[i:i+4096],
+                        parse_mode=ParseMode.HTML,
+                        disable_web_page_preview=True
+                    )
+            else:
+                await query.edit_message_text(
+                    text=tweet_info,
+                    parse_mode=ParseMode.HTML,
+                    disable_web_page_preview=True
+                )
         else:
-            await query.edit_message_text(f"Failed to retrieve X.com profile for {ticker}.")
+            await query.edit_message_text(f"No tweets found for {ticker} ({twitter_handle}).")
     except Exception as e:
-        logger.error(f"Error scraping X.com profile: {str(e)}")
-        await query.edit_message_text(f"An error occurred while fetching the X.com profile for {ticker}.")
+        logger.error(f"Error scraping X.com tweets: {str(e)}")
+        await query.edit_message_text(f"An error occurred while fetching tweets for {ticker} ({twitter_handle}).")
 
 async def analyze_report_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
