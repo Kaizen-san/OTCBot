@@ -290,7 +290,7 @@ async def scrape_tweets(url: str) -> list:
         tweet['created_at'] = tweet['created_at'].strftime('%Y-%m-%d %H:%M:%S')
     
     print(f"Extracted and sorted {len(all_tweets)} tweets")
-    return all_tweets[:50]  # Return more tweets to ensure we capture multiple per date
+    return all_tweets  # Return all tweets instead of limiting to 50
 
 async def scrape_x_profile(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
@@ -311,18 +311,26 @@ async def scrape_x_profile(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             username = twitter_url.split('/')[-1]
             tweet_info = f"Latest tweets from <a href='{twitter_url}'>@{username}</a> for {ticker}:\n\n"
             
-            for tweet in tweets[:10]:  # Display up to 10 tweets
-                date = tweet['created_at'].split()[0]
-                tweet_url = f"{twitter_url}/status/{tweet['id']}"
-                tweet_text = tweet['text'][:150] + "..." if len(tweet['text']) > 150 else tweet['text']
-                tweet_text = tweet_text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-                tweet_info += (f"<b>{date}</b>\n"
-                               f"<a href='{tweet_url}'>{tweet_text}</a>\n"
-                               f"🔁 {tweet['retweet_count']} | ❤️ {tweet['favorite_count']}\n\n")
-            
-            # Ensure the message doesn't exceed Telegram's limit
-            if len(tweet_info) > 4096:
-                tweet_info = tweet_info[:4093] + "..."
+            current_date = None
+            tweet_count = 0
+            for tweet in tweets:
+                tweet_date = tweet['created_at'].split()[0]
+                if tweet_date != current_date:
+                    current_date = tweet_date
+                    tweet_count = 0
+                
+                if tweet_count < 3:  # Display up to 3 tweets per day
+                    tweet_url = f"{twitter_url}/status/{tweet['id']}"
+                    tweet_text = tweet['text'][:150] + "..." if len(tweet['text']) > 150 else tweet['text']
+                    tweet_text = tweet_text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                    tweet_info += (f"<b>{tweet['created_at']}</b>\n"
+                                   f"<a href='{tweet_url}'>{tweet_text}</a>\n"
+                                   f"🔁 {tweet['retweet_count']} | ❤️ {tweet['favorite_count']}\n\n")
+                    tweet_count += 1
+                
+                if len(tweet_info) > 3800:  # Leave some room for potential truncation message
+                    tweet_info += "More tweets available..."
+                    break
             
             await query.edit_message_text(
                 text=tweet_info,
