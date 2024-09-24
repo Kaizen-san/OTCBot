@@ -234,7 +234,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 async def scrape_tweets(url: str) -> list:
     """
-    Scrape the 20 latest tweets from an X.com profile
+    Scrape the latest tweets from an X.com profile, ensuring multiple tweets per date are captured
     """
     result = await SCRAPFLY.async_scrape(ScrapeConfig(
         url, 
@@ -290,7 +290,7 @@ async def scrape_tweets(url: str) -> list:
         tweet['created_at'] = tweet['created_at'].strftime('%Y-%m-%d %H:%M:%S')
     
     print(f"Extracted and sorted {len(all_tweets)} tweets")
-    return all_tweets[:20]  # Return only the 20 latest tweets
+    return all_tweets[:50]  # Return more tweets to ensure we capture multiple per date
 
 async def scrape_x_profile(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
@@ -310,18 +310,40 @@ async def scrape_x_profile(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         if tweets:
             username = twitter_url.split('/')[-1]
             tweet_info = f"Latest tweets from @{username} for {ticker}:\n\n"
-            for i, tweet in enumerate(tweets[:5], 1):  # Display only top 5 tweets
-                tweet_date = tweet['created_at'].split()[0]  # Get just the date part
-                tweet_url = f"{twitter_url}/status/{tweet['id']}"
-                tweet_text = tweet['text'][:100] + "..." if len(tweet['text']) > 100 else tweet['text']
-                tweet_info += (f"{i}. {tweet_date}: <a href='{tweet_url}'>{tweet_text}</a>\n"
-                               f"   🔁 {tweet['retweet_count']} | ❤️ {tweet['favorite_count']}\n\n")
             
-            await query.edit_message_text(
-                text=tweet_info,
-                parse_mode=ParseMode.HTML,
-                disable_web_page_preview=True
-            )
+            # Group tweets by date
+            tweet_groups = {}
+            for tweet in tweets[:20]:  # Process up to 20 tweets
+                date = tweet['created_at'].split()[0]
+                if date not in tweet_groups:
+                    tweet_groups[date] = []
+                tweet_groups[date].append(tweet)
+            
+            # Display tweets grouped by date
+            for date, group in tweet_groups.items():
+                tweet_info += f"{date}:\n"
+                for tweet in group[:3]:  # Display up to 3 tweets per date
+                    tweet_url = f"{twitter_url}/status/{tweet['id']}"
+                    tweet_text = tweet['text'][:100] + "..." if len(tweet['text']) > 100 else tweet['text']
+                    tweet_info += (f"- <a href='{tweet_url}'>{tweet_text}</a>\n"
+                                   f"  🔁 {tweet['retweet_count']} | ❤️ {tweet['favorite_count']}\n\n")
+            
+            # Split message if it's too long
+            if len(tweet_info) > 4096:
+                parts = [tweet_info[i:i+4096] for i in range(0, len(tweet_info), 4096)]
+                for part in parts:
+                    await context.bot.send_message(
+                        chat_id=update.effective_chat.id,
+                        text=part,
+                        parse_mode=ParseMode.HTML,
+                        disable_web_page_preview=True
+                    )
+            else:
+                await query.edit_message_text(
+                    text=tweet_info,
+                    parse_mode=ParseMode.HTML,
+                    disable_web_page_preview=True
+                )
         else:
             await query.edit_message_text(f"No tweets found for {ticker} ({twitter_url}).")
     except Exception as e:
