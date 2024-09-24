@@ -232,10 +232,16 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await update.message.reply_text("Operation cancelled.")
     return ConversationHandler.END
 
-async def scrape_tweets(url: str) -> list:
+async def scrape_tweets(url_or_username: str) -> list:
     """
     Scrape the 20 latest tweets from an X.com profile
     """
+    # Ensure we have a full URL
+    if not url_or_username.startswith("https://"):
+        url = f"https://x.com/{url_or_username}"
+    else:
+        url = url_or_username
+        
     result = await SCRAPFLY.async_scrape(ScrapeConfig(
         url, 
         render_js=True,
@@ -294,22 +300,28 @@ async def scrape_x_profile(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     
     ticker = query.data.split('_')[-1]
     
-    # Retrieve the Twitter handle from the stored profile data
-    twitter_url = ticker_data[ticker]['profile'].get("twitter", "N/A")
+    # Retrieve the Twitter handle or URL from the stored profile data
+    twitter_info = ticker_data[ticker]['profile'].get("twitter", "N/A")
     
-    if twitter_url == "N/A":
-        await query.edit_message_text(f"No Twitter URL found for {ticker}.")
+    if twitter_info == "N/A":
+        await query.edit_message_text(f"No Twitter information found for {ticker}.")
         return
+    
+    # Determine if it's a handle or a full URL
+    if twitter_info.startswith("https://"):
+        twitter_url = twitter_info
+        username = twitter_info.split('/')[-1]
+    else:
+        username = twitter_info
+        twitter_url = f"https://x.com/{username}"
     
     try:
         tweets = await scrape_tweets(twitter_url)
         
         if tweets:
-            # Extract the username from the URL for display purposes
-            username = twitter_url.split('/')[-1]
-            tweet_info = f"Latest 20 tweets from {username} for {ticker}:\n\n"
+            tweet_info = f"Latest 20 tweets from @{username} for {ticker}:\n\n"
             for i, tweet in enumerate(tweets, 1):
-                tweet_url = f"{twitter_url}/status/{tweet['id']}"
+                tweet_url = f"https://x.com/{username}/status/{tweet['id']}"
                 tweet_text = tweet['text'][:100] + "..." if len(tweet['text']) > 100 else tweet['text']
                 tweet_info += (f"{i}. <a href='{tweet_url}'>{tweet_text}</a>\n"
                                f"   🗓 {tweet['created_at']} | 🔁 {tweet['retweet_count']} | ❤️ {tweet['favorite_count']}\n\n")
@@ -330,10 +342,10 @@ async def scrape_x_profile(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                     disable_web_page_preview=True
                 )
         else:
-            await query.edit_message_text(f"No tweets found for {ticker} ({twitter_url}).")
+            await query.edit_message_text(f"No tweets found for {ticker} (@{username}).")
     except Exception as e:
         logger.error(f"Error scraping X.com tweets: {str(e)}")
-        await query.edit_message_text(f"An error occurred while fetching tweets for {ticker} ({twitter_url}).")
+        await query.edit_message_text(f"An error occurred while fetching tweets for {ticker} (@{username}).")
 
 async def analyze_report_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
