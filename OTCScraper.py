@@ -104,7 +104,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 # Add a function to set up the bot commands
 async def setup_commands(bot):
     commands = [
-        BotCommand("start", "Start the bot"),
         BotCommand("info", "Get stock information (usage: /info <TICKER>)"),
         BotCommand("wl", "View your watchlist"),
         BotCommand("premium", "Manage premium status and subscription"),
