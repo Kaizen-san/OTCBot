@@ -249,7 +249,7 @@ async def scrape_tweets(url: str) -> list:
     
     print(f"Found {len(tweet_calls)} UserTweets XHR calls")
     
-    tweets = []
+    all_tweets = []
     for xhr in tweet_calls:
         if not xhr["response"]:
             continue
@@ -270,22 +270,27 @@ async def scrape_tweets(url: str) -> list:
                                             tweet = item_content['tweet_results']['result']
                                             if 'legacy' in tweet:
                                                 legacy = tweet['legacy']
-                                                tweets.append({
+                                                created_at = datetime.strptime(legacy.get('created_at', ''), '%a %b %d %H:%M:%S +0000 %Y')
+                                                all_tweets.append({
                                                     'id': tweet.get('rest_id', ''),
                                                     'text': legacy.get('full_text', ''),
-                                                    'created_at': legacy.get('created_at', ''),
+                                                    'created_at': created_at,
                                                     'retweet_count': legacy.get('retweet_count', 0),
                                                     'favorite_count': legacy.get('favorite_count', 0)
                                                 })
-                                                print(f"Extracted tweet: {tweets[-1]}")
+                                                print(f"Extracted tweet from {created_at}")
         except Exception as e:
             print(f"Error processing tweet data: {str(e)}")
     
     # Sort tweets by created_at in descending order (most recent first)
-    tweets.sort(key=lambda x: x['created_at'], reverse=True)
+    all_tweets.sort(key=lambda x: x['created_at'], reverse=True)
     
-    print(f"Extracted and sorted {len(tweets)} tweets")
-    return tweets[:20]  # Return only the 20 latest tweets
+    # Convert datetime back to string for JSON serialization
+    for tweet in all_tweets:
+        tweet['created_at'] = tweet['created_at'].strftime('%Y-%m-%d %H:%M:%S')
+    
+    print(f"Extracted and sorted {len(all_tweets)} tweets")
+    return all_tweets[:20]  # Return only the 20 latest tweets
 
 async def scrape_x_profile(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
@@ -306,7 +311,7 @@ async def scrape_x_profile(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             username = twitter_url.split('/')[-1]
             tweet_info = f"Latest tweets from @{username} for {ticker}:\n\n"
             for i, tweet in enumerate(tweets[:5], 1):  # Display only top 5 tweets
-                tweet_date = datetime.strptime(tweet['created_at'], '%a %b %d %H:%M:%S +0000 %Y').strftime('%Y-%m-%d')
+                tweet_date = tweet['created_at'].split()[0]  # Get just the date part
                 tweet_url = f"{twitter_url}/status/{tweet['id']}"
                 tweet_text = tweet['text'][:100] + "..." if len(tweet['text']) > 100 else tweet['text']
                 tweet_info += (f"{i}. {tweet_date}: <a href='{tweet_url}'>{tweet_text}</a>\n"
