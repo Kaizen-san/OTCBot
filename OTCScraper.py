@@ -247,18 +247,45 @@ async def scrape_tweets(url: str) -> list:
     for xhr in tweet_calls:
         if not xhr["response"]:
             continue
-        data = json.loads(xhr["response"]["body"])
-        tweet_entries = data['data']['user']['result']['timeline']['timeline']['instructions'][0]['entries']
-        for entry in tweet_entries:
-            if 'tweet' in entry['content']['itemContent']:
-                tweet = entry['content']['itemContent']['tweet_results']['result']
-                tweets.append({
-                    'id': tweet['rest_id'],
-                    'text': tweet['legacy']['full_text'],
-                    'created_at': tweet['legacy']['created_at'],
-                    'retweet_count': tweet['legacy']['retweet_count'],
-                    'favorite_count': tweet['legacy']['favorite_count']
-                })
+        try:
+            data = json.loads(xhr["response"]["body"])
+            # Log the structure of the data for debugging
+            logger.debug(f"Data structure: {json.dumps(data, indent=2)}")
+            
+            # Try to find the tweet entries in different possible locations
+            tweet_entries = None
+            if 'data' in data and 'user' in data['data']:
+                user_data = data['data']['user']['result']
+                if 'timeline' in user_data:
+                    timeline = user_data['timeline']['timeline']
+                    if 'instructions' in timeline and len(timeline['instructions']) > 0:
+                        tweet_entries = timeline['instructions'][0].get('entries', [])
+                elif 'timeline_v2' in user_data:
+                    timeline = user_data['timeline_v2']['timeline']
+                    if 'instructions' in timeline and len(timeline['instructions']) > 0:
+                        tweet_entries = timeline['instructions'][0].get('entries', [])
+            
+            if not tweet_entries:
+                logger.warning(f"No tweet entries found in the response for URL: {url}")
+                continue
+            
+            for entry in tweet_entries:
+                if 'content' in entry and 'itemContent' in entry['content']:
+                    item_content = entry['content']['itemContent']
+                    if 'tweet_results' in item_content:
+                        tweet = item_content['tweet_results']['result']
+                        if 'legacy' in tweet:
+                            legacy = tweet['legacy']
+                            tweets.append({
+                                'id': tweet.get('rest_id', ''),
+                                'text': legacy.get('full_text', ''),
+                                'created_at': legacy.get('created_at', ''),
+                                'retweet_count': legacy.get('retweet_count', 0),
+                                'favorite_count': legacy.get('favorite_count', 0)
+                            })
+        except Exception as e:
+            logger.error(f"Error processing tweet data: {str(e)}")
+    
     return tweets[:20]  # Return only the 20 latest tweets
 
 async def scrape_x_profile(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -268,21 +295,21 @@ async def scrape_x_profile(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     ticker = query.data.split('_')[-1]
     
     # Retrieve the Twitter handle from the stored profile data
-    twitter_handle = ticker_data[ticker]['profile'].get("twitter", "N/A")
+    twitter_url = ticker_data[ticker]['profile'].get("twitter", "N/A")
     
-    if twitter_handle == "N/A":
-        await query.edit_message_text(f"No Twitter handle found for {ticker}.")
+    if twitter_url == "N/A":
+        await query.edit_message_text(f"No Twitter URL found for {ticker}.")
         return
     
-    x_url = f"{twitter_handle}"
-    
     try:
-        tweets = await scrape_tweets(x_url)
+        tweets = await scrape_tweets(twitter_url)
         
         if tweets:
-            tweet_info = f"Latest 20 tweets from {twitter_handle} for {ticker}:\n\n"
+            # Extract the username from the URL for display purposes
+            username = twitter_url.split('/')[-1]
+            tweet_info = f"Latest 20 tweets from {username} for {ticker}:\n\n"
             for i, tweet in enumerate(tweets, 1):
-                tweet_url = f"{twitter_handle}/status/{tweet['id']}"
+                tweet_url = f"{twitter_url}/status/{tweet['id']}"
                 tweet_text = tweet['text'][:100] + "..." if len(tweet['text']) > 100 else tweet['text']
                 tweet_info += (f"{i}. <a href='{tweet_url}'>{tweet_text}</a>\n"
                                f"   🗓 {tweet['created_at']} | 🔁 {tweet['retweet_count']} | ❤️ {tweet['favorite_count']}\n\n")
@@ -303,10 +330,10 @@ async def scrape_x_profile(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                     disable_web_page_preview=True
                 )
         else:
-            await query.edit_message_text(f"No tweets found for {ticker} ({twitter_handle}).")
+            await query.edit_message_text(f"No tweets found for {ticker} ({twitter_url}).")
     except Exception as e:
         logger.error(f"Error scraping X.com tweets: {str(e)}")
-        await query.edit_message_text(f"An error occurred while fetching tweets for {ticker} ({twitter_handle}).")
+        await query.edit_message_text(f"An error occurred while fetching tweets for {ticker} ({twitter_url}).")
 
 async def analyze_report_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
