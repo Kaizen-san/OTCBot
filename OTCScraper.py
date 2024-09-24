@@ -320,34 +320,28 @@ async def scrape_x_profile(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                 tweet_groups[date].append(tweet)
             
             # Display tweets grouped by date
-            for date, group in tweet_groups.items():
+            for date, group in list(tweet_groups.items())[:5]:  # Display up to 5 dates
                 tweet_info += f"{date}:\n"
                 for tweet in group[:3]:  # Display up to 3 tweets per date
                     tweet_url = f"{twitter_url}/status/{tweet['id']}"
-                    tweet_text = tweet['text'][:100] + "..." if len(tweet['text']) > 100 else tweet['text']
+                    tweet_text = tweet['text'][:50] + "..." if len(tweet['text']) > 50 else tweet['text']
+                    tweet_text = tweet_text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
                     tweet_info += (f"- <a href='{tweet_url}'>{tweet_text}</a>\n"
                                    f"  🔁 {tweet['retweet_count']} | ❤️ {tweet['favorite_count']}\n\n")
             
-            # Split message if it's too long
+            # Ensure the message doesn't exceed Telegram's limit
             if len(tweet_info) > 4096:
-                parts = [tweet_info[i:i+4096] for i in range(0, len(tweet_info), 4096)]
-                for part in parts:
-                    await context.bot.send_message(
-                        chat_id=update.effective_chat.id,
-                        text=part,
-                        parse_mode=ParseMode.HTML,
-                        disable_web_page_preview=True
-                    )
-            else:
-                await query.edit_message_text(
-                    text=tweet_info,
-                    parse_mode=ParseMode.HTML,
-                    disable_web_page_preview=True
-                )
+                tweet_info = tweet_info[:4093] + "..."
+            
+            await query.edit_message_text(
+                text=tweet_info,
+                parse_mode=ParseMode.HTML,
+                disable_web_page_preview=True
+            )
         else:
             await query.edit_message_text(f"No tweets found for {ticker} ({twitter_url}).")
     except Exception as e:
-        print(f"Error scraping X.com tweets: {str(e)}")
+        logger.error(f"Error scraping X.com tweets: {str(e)}")
         await query.edit_message_text(f"An error occurred while fetching tweets for {ticker} ({twitter_url}).")
 
 async def analyze_report_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
