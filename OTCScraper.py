@@ -282,7 +282,7 @@ async def scrape_x_profile(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         if tweets:
             tweet_info = f"Latest 20 tweets from {twitter_handle} for {ticker}:\n\n"
             for i, tweet in enumerate(tweets, 1):
-                tweet_url = f"https://x.com/{twitter_handle}/status/{tweet['id']}"
+                tweet_url = f"{twitter_handle}/status/{tweet['id']}"
                 tweet_text = tweet['text'][:100] + "..." if len(tweet['text']) > 100 else tweet['text']
                 tweet_info += (f"{i}. <a href='{tweet_url}'>{tweet_text}</a>\n"
                                f"   🗓 {tweet['created_at']} | 🔁 {tweet['retweet_count']} | ❤️ {tweet['favorite_count']}\n\n")
