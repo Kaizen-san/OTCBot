@@ -240,19 +240,27 @@ async def scrape_tweets(url: str) -> list:
             wait_for_selector="[data-testid='tweet']"
         ))
         
+        print(f"Scrapfly response status: {result.status_code}")
+        
         _xhr_calls = result.scrape_result["browser_data"]["xhr_call"]
         tweet_calls = [f for f in _xhr_calls if "UserTweets" in f["url"]]
+        
+        print(f"Found {len(tweet_calls)} UserTweets XHR calls")
         
         tweets = []
         for xhr in tweet_calls:
             if xhr["response"]:
                 data = json.loads(xhr["response"]["body"])
+                print(f"XHR data keys: {list(data.keys())}")
+                print(f"Full XHR data: {json.dumps(data, indent=2)[:1000]}...")  # Print first 1000 characters
+                
                 if 'data' in data and 'user' in data['data']:
                     user_data = data['data']['user']['result']
                     if 'timeline' in user_data:
                         timeline = user_data['timeline']['timeline']
                         if 'instructions' in timeline and timeline['instructions']:
                             entries = timeline['instructions'][0].get('entries', [])
+                            print(f"Found {len(entries)} entries in timeline")
                             for entry in entries:
                                 if 'content' in entry and 'itemContent' in entry['content']:
                                     item_content = entry['content']['itemContent']
@@ -267,10 +275,15 @@ async def scrape_tweets(url: str) -> list:
                                                 'retweet_count': legacy.get('retweet_count', 0),
                                                 'favorite_count': legacy.get('favorite_count', 0)
                                             })
+                else:
+                    print("Expected data structure not found in XHR response")
+        
+        print(f"Extracted {len(tweets)} tweets")
         return tweets[:20]  # Return only the 20 latest tweets
     except Exception as e:
+        print(f"Error in scrape_tweets: {str(e)}")
         return []
-
+        
 async def scrape_x_profile(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
