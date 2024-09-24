@@ -24,6 +24,8 @@ import re
 import urllib.parse
 import tenacity
 from tenacity import retry, stop_after_attempt, wait_exponential
+import scrapfly
+from scrapfly import ScrapeConfig, ScrapflyClient
 
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
@@ -46,6 +48,9 @@ WATCHLIST_SHEET_ID = Config.WATCHLIST_SHEET_ID
 
 #Claude API
 anthropic = Anthropic(api_key=Config.ANTHROPIC_API_KEY)
+
+#Scrapfly API
+SCRAPFLY = ScrapflyClient(key=Config.SCRAPFLY_API_KEY)
 
 #Make webhook
 WEBHOOK_URL = Config.WEBHOOK_URL
@@ -227,6 +232,68 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await update.message.reply_text("Operation cancelled.")
     return ConversationHandler.END
 
+async def scrape_tweet(url: str) -> dict:
+    """
+    Scrape a X.com profile details e.g.: https://x.com/Scrapfly_dev
+    """
+    result = await SCRAPFLY.async_scrape(ScrapeConfig(
+        url, 
+        render_js=True,  # enable headless browser
+        wait_for_selector="[data-testid='primaryColumn']"  # wait for page to finish loading 
+    ))
+    # capture background requests and extract ones that request Tweet data
+    _xhr_calls = result.scrape_result["browser_data"]["xhr_call"]
+    tweet_call = [f for f in _xhr_calls if "UserBy" in f["url"]]
+    for xhr in tweet_call:
+        if not xhr["response"]:
+            continue
+        data = json.loads(xhr["response"]["body"])
+        return data['data']['user']['result']
+
+async def scrape_x_profile(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+    
+    ticker = query.data.split('_')[-1]
+    
+    # Retrieve the Twitter handle from the stored profile data
+    twitter_handle = ticker_data[ticker]['profile'].get("twitter", "N/A")
+    
+    if twitter_handle == "N/A":
+        await query.edit_message_text(f"No Twitter handle found for {ticker}.")
+        return
+    
+    x_url = f"https://x.com/{twitter_handle}"
+    
+    try:
+        profile_data = await scrape_tweet(x_url)
+        
+        if profile_data:
+            # Extract relevant information from the profile data
+            name = profile_data.get('legacy', {}).get('name', 'N/A')
+            screen_name = profile_data.get('legacy', {}).get('screen_name', 'N/A')
+            description = profile_data.get('legacy', {}).get('description', 'N/A')
+            followers_count = profile_data.get('legacy', {}).get('followers_count', 'N/A')
+            friends_count = profile_data.get('legacy', {}).get('friends_count', 'N/A')
+            statuses_count = profile_data.get('legacy', {}).get('statuses_count', 'N/A')
+            
+            profile_info = (
+                f"X.com Profile for {ticker}:\n\n"
+                f"Name: {name}\n"
+                f"Handle: @{screen_name}\n"
+                f"Bio: {description}\n"
+                f"Followers: {followers_count}\n"
+                f"Following: {friends_count}\n"
+                f"Total Tweets: {statuses_count}\n\n"
+                f"Profile URL: {x_url}"
+            )
+            
+            await query.edit_message_text(profile_info, parse_mode=ParseMode.HTML)
+        else:
+            await query.edit_message_text(f"Failed to retrieve X.com profile for {ticker}.")
+    except Exception as e:
+        logger.error(f"Error scraping X.com profile: {str(e)}")
+        await query.edit_message_text(f"An error occurred while fetching the X.com profile for {ticker}.")
 
 async def analyze_report_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
@@ -600,7 +667,7 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 InlineKeyboardButton("📊 Analyze Latest Report", callback_data=f"analyze_report_{ticker}")
             ],
             [
-                InlineKeyboardButton("Get the 20 most recent Tweets", callback_data=f"send_webhook_{ticker}")
+                InlineKeyboardButton("🐦 Get X.com Profile", callback_data=f"scrape_x_profile_{ticker}")
             ]
         ]
         
@@ -717,6 +784,7 @@ def main() -> None:
     application.add_handler(CommandHandler("wl", view_watchlist))
     application.add_handler(CallbackQueryHandler(analyze_report_button, pattern="^analyze_report_"))
     application.add_handler(CallbackQueryHandler(send_to_webhook, pattern="^send_webhook_"))
+    application.add_handler(CallbackQueryHandler(scrape_x_profile, pattern="^scrape_x_profile_"))
 
        # Add a new message handler for processing ticker symbols
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, info))
