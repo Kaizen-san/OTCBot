@@ -256,25 +256,28 @@ async def scrape_tweets(url: str) -> list:
                 
                 if 'data' in data and 'user' in data['data']:
                     user_data = data['data']['user']['result']
-                    if 'timeline' in user_data:
-                        timeline = user_data['timeline']['timeline']
-                        if 'instructions' in timeline and timeline['instructions']:
-                            entries = timeline['instructions'][0].get('entries', [])
-                            print(f"Found {len(entries)} entries in timeline")
-                            for entry in entries:
-                                if 'content' in entry and 'itemContent' in entry['content']:
-                                    item_content = entry['content']['itemContent']
-                                    if 'tweet_results' in item_content:
-                                        tweet = item_content['tweet_results']['result']
-                                        if 'legacy' in tweet:
-                                            legacy = tweet['legacy']
-                                            tweets.append({
-                                                'id': tweet.get('rest_id', ''),
-                                                'text': legacy.get('full_text', ''),
-                                                'created_at': legacy.get('created_at', ''),
-                                                'retweet_count': legacy.get('retweet_count', 0),
-                                                'favorite_count': legacy.get('favorite_count', 0)
-                                            })
+                    if 'timeline_v2' in user_data:
+                        timeline = user_data['timeline_v2']['timeline']
+                        if 'instructions' in timeline:
+                            for instruction in timeline['instructions']:
+                                if instruction['type'] == 'TimelineAddEntries':
+                                    entries = instruction.get('entries', [])
+                                    print(f"Found {len(entries)} entries in timeline")
+                                    for entry in entries:
+                                        if 'content' in entry and 'itemContent' in entry['content']:
+                                            item_content = entry['content']['itemContent']
+                                            if 'tweet_results' in item_content:
+                                                tweet = item_content['tweet_results']['result']
+                                                if 'legacy' in tweet:
+                                                    legacy = tweet['legacy']
+                                                    tweets.append({
+                                                        'id': tweet.get('rest_id', ''),
+                                                        'text': legacy.get('full_text', ''),
+                                                        'created_at': legacy.get('created_at', ''),
+                                                        'retweet_count': legacy.get('retweet_count', 0),
+                                                        'favorite_count': legacy.get('favorite_count', 0)
+                                                    })
+                                                    print(f"Extracted tweet: {tweets[-1]}")
                 else:
                     print("Expected data structure not found in XHR response")
         
@@ -283,7 +286,7 @@ async def scrape_tweets(url: str) -> list:
     except Exception as e:
         print(f"Error in scrape_tweets: {str(e)}")
         return []
-        
+
 async def scrape_x_profile(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
