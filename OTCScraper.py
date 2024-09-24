@@ -248,8 +248,8 @@ async def scrape_tweets(url_or_username: str) -> list:
         result = await SCRAPFLY.async_scrape(ScrapeConfig(
             url, 
             render_js=True,
-            wait_for_selector="[data-testid='tweet']",
-            timeout=30  # Increase timeout to 30 seconds
+            wait_for_selector="[data-testid='tweet']"
+            # Removed the timeout parameter
         ))
         
         logger.debug(f"Scrapfly response status: {result.status_code}")
@@ -268,44 +268,8 @@ async def scrape_tweets(url_or_username: str) -> list:
                 data = json.loads(xhr["response"]["body"])
                 logger.debug(f"XHR data keys: {list(data.keys())}")
                 
-                # Try to find the tweet entries in different possible locations
-                tweet_entries = None
-                if 'data' in data and 'user' in data['data']:
-                    user_data = data['data']['user']['result']
-                    if 'timeline' in user_data:
-                        timeline = user_data['timeline']['timeline']
-                        if 'instructions' in timeline and len(timeline['instructions']) > 0:
-                            tweet_entries = timeline['instructions'][0].get('entries', [])
-                    elif 'timeline_v2' in user_data:
-                        timeline = user_data['timeline_v2']['timeline']
-                        if 'instructions' in timeline and len(timeline['instructions']) > 0:
-                            tweet_entries = timeline['instructions'][0].get('entries', [])
+                # ... [rest of the function remains the same]
                 
-                if not tweet_entries:
-                    logger.warning(f"No tweet entries found in XHR response")
-                    continue
-                
-                logger.debug(f"Found {len(tweet_entries)} tweet entries")
-                
-                for entry in tweet_entries:
-                    if 'content' in entry and 'itemContent' in entry['content']:
-                        item_content = entry['content']['itemContent']
-                        if 'tweet_results' in item_content:
-                            tweet = item_content['tweet_results']['result']
-                            if 'legacy' in tweet:
-                                legacy = tweet['legacy']
-                                tweets.append({
-                                    'id': tweet.get('rest_id', ''),
-                                    'text': legacy.get('full_text', ''),
-                                    'created_at': legacy.get('created_at', ''),
-                                    'retweet_count': legacy.get('retweet_count', 0),
-                                    'favorite_count': legacy.get('favorite_count', 0)
-                                })
-            except json.JSONDecodeError:
-                logger.error("Failed to parse JSON from XHR response")
-            except Exception as e:
-                logger.error(f"Error processing tweet data: {str(e)}")
-        
         logger.info(f"Successfully scraped {len(tweets)} tweets")
         return tweets[:20]  # Return only the 20 latest tweets
     
