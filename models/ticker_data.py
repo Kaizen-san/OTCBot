@@ -1,0 +1,31 @@
+from datetime import datetime
+
+class TickerData:
+    _instances = {}
+
+    def __init__(self, profile_data, trade_data, news_data):
+        self.profile_data = profile_data
+        self.trade_data = trade_data
+        self.news_data = news_data
+        self.timestamp = datetime.now()
+
+    @classmethod
+    def get(cls, ticker):
+        return cls._instances.get(ticker)
+
+    @classmethod
+    def set(cls, ticker, instance):
+        cls._instances[ticker] = instance
+
+    def get_latest_filing_url(self):
+        return self.profile_data.get("latestFilingUrl", "N/A")
+
+    def get_previous_close_price(self):
+        return self.trade_data.get("previousClose", "N/A")
+
+    def get_twitter_url(self):
+        return self.profile_data.get("twitter", "N/A")
+
+    def is_outdated(self, max_age_minutes=30):
+        age = datetime.now() - self.timestamp
+        return age.total_seconds() / 60 > max_age_minutes
