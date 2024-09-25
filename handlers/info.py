@@ -1,12 +1,9 @@
 import logging
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
 from telegram.ext import ContextTypes
-from telegram.error import BadRequest
 from api.otc_markets import get_profile_data, get_trade_data, get_news_data
-from utils.formatting import format_number, convert_timestamp, custom_escape_html
+from utils.formatting import format_response, create_reply_markup
 from models.ticker_data import TickerData
-import urllib.parse
-from telegram.constants import ParseMode
 
 logger = logging.getLogger(__name__)
 
@@ -22,11 +19,11 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     await update.message.reply_text(f"Fetching information for ticker: {ticker}")
 
-     try:
+    try:
         profile_data = await get_profile_data(ticker)
         trade_data = await get_trade_data(ticker)
         news_data = await get_news_data(ticker)
-
+        
         # Ensure that the data is hashable (convert lists or slices to tuples if necessary)
         ticker_data = TickerData(
             profile_data,
@@ -42,7 +39,7 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     except Exception as e:
         logger.error(f"Error fetching data for {ticker}: {str(e)}")
         await update.message.reply_text(f"An error occurred while fetching data for {ticker}. Please try again later.")
-
+        
 def format_response(ticker_data, ticker):
     profile = ticker_data.profile_data
     trade = ticker_data.trade_data
