@@ -1,11 +1,12 @@
 import logging
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from telegram.error import BadRequest
 from api.otc_markets import get_profile_data, get_trade_data, get_news_data
 from utils.formatting import format_number, convert_timestamp, custom_escape_html
 from models.ticker_data import TickerData
 import urllib.parse
+from telegram.constants import ParseMode
 
 logger = logging.getLogger(__name__)
 
