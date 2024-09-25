@@ -22,12 +22,17 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     await update.message.reply_text(f"Fetching information for ticker: {ticker}")
 
-    try:
+     try:
         profile_data = await get_profile_data(ticker)
         trade_data = await get_trade_data(ticker)
         news_data = await get_news_data(ticker)
 
-        ticker_data = TickerData(profile_data, trade_data, news_data)
+        # Ensure that the data is hashable (convert lists or slices to tuples if necessary)
+        ticker_data = TickerData(
+            profile_data,
+            trade_data,
+            tuple(news_data) if isinstance(news_data, list) else news_data
+        )
         TickerData.set(ticker, ticker_data)
         
         response_message = format_response(ticker_data, ticker)
