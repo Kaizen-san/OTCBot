@@ -8,6 +8,7 @@ class TickerData:
         self.trade_data = trade_data
         self.news_data = news_data
         self.timestamp = datetime.now()
+        logger.debug(f"TickerData initialized with: {self.__dict__}")
 
     @classmethod
     def get(cls, ticker):

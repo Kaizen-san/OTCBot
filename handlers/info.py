@@ -40,6 +40,11 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             trade_data = await get_trade_data(ticker)
             news_data = await get_news_data(ticker)
 
+                    # Add these debug logs here
+            logger.debug(f"Profile data: {profile_data}")
+            logger.debug(f"Trade data: {trade_data}")
+            logger.debug(f"News data: {news_data}")
+
             ticker_data[ticker] = TickerData(profile_data, trade_data, news_data)
             
             response_message = format_response(ticker_data[ticker], ticker)
@@ -67,6 +72,9 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             return
 
 def format_response(ticker_data, ticker):
+
+    logger.debug(f"Formatting response for {ticker}")
+    logger.debug(f"Ticker data: {ticker_data.__dict__}")
     profile = ticker_data.profile_data
     trade = ticker_data.trade_data
     news = ticker_data.news_data
