@@ -547,7 +547,7 @@ async def is_valid_ticker(text: str) -> bool:
     return 3 <= len(text) <= 5 and text.isalpha() 
 
 async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        global ticker_data
+    global ticker_data
     
     # Check if the message is a command or just potential ticker
     if update.message.text.startswith('/'):
@@ -562,7 +562,7 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not ticker:
         # If it's not a valid ticker, don't process further
         return
-        
+
     max_retries = 3
     for attempt in range(max_retries):
         try:
