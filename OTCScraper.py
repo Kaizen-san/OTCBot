@@ -540,23 +540,29 @@ async def send_to_webhook(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                     await query.edit_message_text(f"Failed to send {ticker} to webhook. Status code: {response.status}")
         except Exception as e:
             logger.error(f"Error sending to webhook: {str(e)}")
-            await query.edit_message_text(f"An error occurred while sending {ticker} to webhook.")    
+            await query.edit_message_text(f"An error occurred while sending {ticker} to webhook.")
+
+async def is_valid_ticker(text: str) -> bool:
+    # Check if the text is between 3-5 characters and contains only letters
+    return 3 <= len(text) <= 5 and text.isalpha() 
 
 async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    global ticker_data
+        global ticker_data
     
-    # Check if the message is a command or just a ticker
+    # Check if the message is a command or just potential ticker
     if update.message.text.startswith('/'):
         ticker = context.args[0].upper() if context.args else None
     else:
-        ticker = update.message.text.upper()
+        # For non-command messages, validate if it's a potential ticker
+        potential_ticker = update.message.text.strip().upper()
+        ticker = potential_ticker if await is_valid_ticker(potential_ticker) else None
     
     logger.debug("Received info request for ticker: %s", ticker)
     
     if not ticker:
-        await update.message.reply_text("Please provide a ticker symbol.")
+        # If it's not a valid ticker, don't process further
         return
-
+        
     max_retries = 3
     for attempt in range(max_retries):
         try:
