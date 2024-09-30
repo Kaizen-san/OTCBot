@@ -1,45 +1,70 @@
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
 from telegram.ext import ContextTypes
+from telegram.error import BadRequest
 from api.otc_markets import get_profile_data, get_trade_data, get_news_data
-from utils.formatting import format_response, create_reply_markup
+from utils.formatting import format_number, convert_timestamp, custom_escape_html
 from models.ticker_data import TickerData
+import urllib.parse
+import asyncio
+from telegram.error import TimedOut, NetworkError
 
 logger = logging.getLogger(__name__)
 
+ticker_data = {}
+
+async def is_valid_ticker(text: str) -> bool:
+    return 3 <= len(text) <= 5 and text.isalpha()
+
 async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    global ticker_data
+    
     if update.message.text.startswith('/'):
         ticker = context.args[0].upper() if context.args else None
     else:
-        ticker = update.message.text.upper()
+        potential_ticker = update.message.text.strip().upper()
+        ticker = potential_ticker if await is_valid_ticker(potential_ticker) else None
+    
+    logger.debug("Received info request for ticker: %s", ticker)
     
     if not ticker:
-        await update.message.reply_text("Please provide a ticker symbol.")
         return
 
-    await update.message.reply_text(f"Fetching information for ticker: {ticker}")
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            await update.message.reply_text(f"Fetching information for ticker: {ticker}")
+            
+            profile_data = await get_profile_data(ticker)
+            trade_data = await get_trade_data(ticker)
+            news_data = await get_news_data(ticker)
 
-    try:
-        profile_data = await get_profile_data(ticker)
-        trade_data = await get_trade_data(ticker)
-        news_data = await get_news_data(ticker)
-        
-        # Ensure that the data is hashable (convert lists or slices to tuples if necessary)
-        ticker_data = TickerData(
-            profile_data,
-            trade_data,
-            tuple(news_data) if isinstance(news_data, list) else news_data
-        )
-        TickerData.set(ticker, ticker_data)
-        
-        response_message = format_response(ticker_data, ticker)
-        reply_markup = create_reply_markup(ticker)
+            ticker_data[ticker] = TickerData(profile_data, trade_data, news_data)
+            
+            response_message = format_response(ticker_data[ticker], ticker)
+            reply_markup = create_reply_markup(ticker)
 
-        await update.message.reply_text(response_message, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
-    except Exception as e:
-        logger.error(f"Error fetching data for {ticker}: {str(e)}")
-        await update.message.reply_text(f"An error occurred while fetching data for {ticker}. Please try again later.")
-        
+            try:
+                await update.message.reply_text(response_message, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
+            except BadRequest as e:
+                logger.error(f"Error sending formatted message: {e}")
+                await update.message.reply_text("Error in formatting. Here's the raw data:", parse_mode=None)
+                await update.message.reply_text(str(response_message), reply_markup=reply_markup, parse_mode=None)
+            
+            break  # If successful, break out of the retry loop
+        except (TimedOut, NetworkError) as e:
+            if attempt < max_retries - 1:  # i.e. not on the last attempt
+                logger.warning(f"Attempt {attempt + 1} failed: {str(e)}. Retrying...")
+                await asyncio.sleep(1)  # Wait a bit before retrying
+            else:
+                logger.error(f"Failed to fetch info after {max_retries} attempts: {str(e)}")
+                await update.message.reply_text("Sorry, I'm having trouble fetching the information. Please try again later.")
+                return
+        except Exception as e:
+            logger.error(f"Error fetching data for {ticker}: {str(e)}")
+            await update.message.reply_text(f"An error occurred while fetching data for {ticker}. Please try again later.")
+            return
+
 def format_response(ticker_data, ticker):
     profile = ticker_data.profile_data
     trade = ticker_data.trade_data
