@@ -82,9 +82,10 @@ def format_response(ticker_data, ticker):
 
     logger.debug(f"Formatting response for {ticker}")
     logger.debug(f"Ticker data: {ticker_data.__dict__}")
+
     profile = ticker_data.profile_data
     trade = ticker_data.trade_data
-    news = ticker_data.news_data
+    news = ticker_data.news_data.get('records', [])  # Use .get() with a default value
 
     security = profile.get("securities", [{}])[0]
     outstanding_shares = format_number(security.get("outstandingShares", "N/A"))
