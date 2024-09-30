@@ -51,6 +51,13 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             reply_markup = create_reply_markup(ticker)
 
             try:
+                response_message = format_response(ticker_data[ticker], ticker)
+            except Exception as e:
+                 logger.error(f"Error formatting response for {ticker}: {str(e)}")
+                 await update.message.reply_text(f"An error occurred while formatting data for {ticker}. Please try again later.")
+                 return
+
+            try:
                 await update.message.reply_text(response_message, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
             except BadRequest as e:
                 logger.error(f"Error sending formatted message: {e}")
