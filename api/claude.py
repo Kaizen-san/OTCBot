@@ -1,5 +1,5 @@
 import logging
-from anthropic import AsyncAnthropic
+from anthropic import AsyncAnthropic, Anthropic
 from config import Config
 
 logger = logging.getLogger(__name__)

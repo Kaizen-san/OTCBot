@@ -3,6 +3,9 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Conv
 from config import Config
 from handlers import start, info, watchlist, analyze, scrape
 from utils.rate_limiter import RateLimiter
+from telegram.error import TimedOut, NetworkError
+from telegram.request import HTTPXRequest
+import asyncio
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)
