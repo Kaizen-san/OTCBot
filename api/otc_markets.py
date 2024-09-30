@@ -8,7 +8,10 @@ BASE_URL = "https://backend.otcmarkets.com/otcapi"
 
 async def get_profile_data(ticker):
     url = f"{BASE_URL}/company/profile/full/{ticker}"
-    return await fetch_data(url)
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url, headers=headers) as response:
+            response.raise_for_status()
+            return await response.json()
 
 async def get_trade_data(ticker):
     url = f"{BASE_URL}/stock/trade/inside/{ticker}"
