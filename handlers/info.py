@@ -40,7 +40,7 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             trade_data = await get_trade_data(ticker)
             news_data = await get_news_data(ticker)
 
-                    # Add these debug logs here
+            # Add these debug logs here
             logger.debug(f"Profile data: {profile_data}")
             logger.debug(f"Trade data: {trade_data}")
             logger.debug(f"News data: {news_data}")
