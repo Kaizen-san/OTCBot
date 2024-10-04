@@ -69,13 +69,12 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             return
 
 def format_response(ticker_data, ticker):
-
     logger.debug(f"Formatting response for {ticker}")
     logger.debug(f"Ticker data: {ticker_data.__dict__}")
 
     profile = ticker_data.profile_data
     trade = ticker_data.trade_data
-    news = ticker_data.news_data.get('records', [])  # Use .get() with a default value
+    news = ticker_data.news_data
 
     security = profile.get("securities", [{}])[0]
     outstanding_shares = format_number(security.get("outstandingShares", "N/A"))
@@ -106,10 +105,10 @@ def format_response(ticker_data, ticker):
     caveat_emptor_message = "<b>☠️ Warning - Caveat Emptor: True</b>\n\n" if is_caveat_emptor else ""
 
     news_content = "<b>📰 Latest News:</b>\n"
-    if ticker_data.news_data:
-        for news in ticker_data.news_data[:3]:
-            news_url = f"https://www.otcmarkets.com/stock/{ticker}/news/{urllib.parse.quote(news['title'])}?id={news['id']}"
-            news_content += f"• {custom_escape_html(news['releaseDate'])}: <a href='{news_url}'>{custom_escape_html(news['title'])}</a>\n"
+    if isinstance(news, list) and news:
+        for news_item in news[:3]:
+            news_url = f"https://www.otcmarkets.com/stock/{ticker}/news/{urllib.parse.quote(news_item['title'])}?id={news_item['id']}"
+            news_content += f"• {custom_escape_html(news_item['releaseDate'])}: <a href='{news_url}'>{custom_escape_html(news_item['title'])}</a>\n"
     else:
         news_content += "No recent news available.\n"
 
