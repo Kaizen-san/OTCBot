@@ -103,7 +103,7 @@ def format_response(ticker_data, ticker):
     latest_filing_date = convert_timestamp(profile.get("latestFilingDate", "N/A"))
     latest_filing_url = profile.get("latestFilingUrl", "N/A")
     if latest_filing_url and latest_filing_url != "N/A":
-        latest_filing_url = f"https://www.otcmarkets.com{latest_filing_url}"
+        latest_filing_url = f"https://www.otcmarkets.com/otcapi{latest_filing_url}"
 
     previous_close_price = trade.get("previousClose", "N/A") if trade else "N/A"
 
