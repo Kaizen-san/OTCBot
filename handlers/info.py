@@ -40,29 +40,19 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             trade_data = await get_trade_data(ticker)
             news_data = await get_news_data(ticker)
 
-            # Add these debug logs here
             logger.debug(f"Profile data: {profile_data}")
             logger.debug(f"Trade data: {trade_data}")
             logger.debug(f"News data: {news_data}")
 
             ticker_data[ticker] = TickerData(profile_data, trade_data, news_data)
             
-            response_message = format_response(ticker_data[ticker], ticker)
-            reply_markup = create_reply_markup(ticker)
-
             try:
                 response_message = format_response(ticker_data[ticker], ticker)
-            except Exception as e:
-                 logger.error(f"Error formatting response for {ticker}: {str(e)}")
-                 await update.message.reply_text(f"An error occurred while formatting data for {ticker}. Please try again later.")
-                 return
-
-            try:
+                reply_markup = create_reply_markup(ticker)
                 await update.message.reply_text(response_message, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
-            except BadRequest as e:
-                logger.error(f"Error sending formatted message: {e}")
-                await update.message.reply_text("Error in formatting. Here's the raw data:", parse_mode=None)
-                await update.message.reply_text(str(response_message), reply_markup=reply_markup, parse_mode=None)
+            except Exception as e:
+                logger.error(f"Error formatting or sending response for {ticker}: {str(e)}")
+                await update.message.reply_text(f"An error occurred while processing data for {ticker}. Please try again later.")
             
             break  # If successful, break out of the retry loop
         except (TimedOut, NetworkError) as e:
@@ -116,10 +106,10 @@ def format_response(ticker_data, ticker):
     caveat_emptor_message = "<b>☠️ Warning - Caveat Emptor: True</b>\n\n" if is_caveat_emptor else ""
 
     news_content = "<b>📰 Latest News:</b>\n"
-    if news:
-        for news_item in news[:3]:
-            news_url = f"https://www.otcmarkets.com/stock/{ticker}/news/{urllib.parse.quote(news_item['title'])}?id={news_item['id']}"
-            news_content += f"• {custom_escape_html(news_item['releaseDate'])}: <a href='{news_url}'>{custom_escape_html(news_item['title'])}</a>\n"
+    if ticker_data.news_data:
+        for news in ticker_data.news_data[:3]:
+            news_url = f"https://www.otcmarkets.com/stock/{ticker}/news/{urllib.parse.quote(news['title'])}?id={news['id']}"
+            news_content += f"• {custom_escape_html(news['releaseDate'])}: <a href='{news_url}'>{custom_escape_html(news['title'])}</a>\n"
     else:
         news_content += "No recent news available.\n"
 

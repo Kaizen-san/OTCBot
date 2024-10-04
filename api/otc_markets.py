@@ -34,7 +34,11 @@ async def get_news_data(ticker):
         "sortOn": "releaseDate",
         "sortDir": "DESC"
     }
-    return await fetch_data(url, params=params)
+    try:
+        return await fetch_data(url, params=params)
+    except aiohttp.ContentTypeError:
+        logger.warning(f"No news data available for {ticker}")
+        return []  # Return an empty list instead of raising an exception
 
 async def fetch_data(url, params=None):
     headers = {
