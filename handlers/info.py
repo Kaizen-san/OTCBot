@@ -9,6 +9,9 @@ from models.ticker_data import TickerData
 import urllib.parse
 import asyncio
 from telegram.error import TimedOut, NetworkError
+from datetime import datetime
+
+
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +107,6 @@ def format_response(ticker_data, ticker):
 
     caveat_emptor_message = "<b>☠️ Warning - Caveat Emptor: True</b>\n\n" if is_caveat_emptor else ""
 
-    news = ticker_data.news_data
     news_content = "<b>📰 Latest News:</b>\n"
     if isinstance(news, dict) and 'records' in news and news['records']:
         for news_item in news['records'][:3]:  # Display up to 3 news items
