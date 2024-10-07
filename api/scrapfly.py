@@ -18,12 +18,12 @@ async def scrape_tweets(url: str) -> list:
         wait_for_selector="[data-testid='tweet']"
     ))
     
-    logger.debug(f"Scrapfly response status: {result.status_code}")
+    print(f"Scrapfly response status: {result.status_code}")
     
     _xhr_calls = result.scrape_result["browser_data"]["xhr_call"]
     tweet_calls = [f for f in _xhr_calls if "UserTweets" in f["url"]]
     
-    logger.debug(f"Found {len(tweet_calls)} UserTweets XHR calls")
+    print(f"Found {len(tweet_calls)} UserTweets XHR calls")
     
     all_tweets = []
     for xhr in tweet_calls:
@@ -54,9 +54,9 @@ async def scrape_tweets(url: str) -> list:
                                                     'retweet_count': legacy.get('retweet_count', 0),
                                                     'favorite_count': legacy.get('favorite_count', 0)
                                                 })
-                                                logger.debug(f"Extracted tweet from {created_at}")
+                                                print(f"Extracted tweet from {created_at}")
         except Exception as e:
-            logger.error(f"Error processing tweet data: {str(e)}")
+            print(f"Error processing tweet data: {str(e)}")
     
     # Sort tweets by created_at in descending order (most recent first)
     all_tweets.sort(key=lambda x: x['created_at'], reverse=True)
@@ -65,5 +65,5 @@ async def scrape_tweets(url: str) -> list:
     for tweet in all_tweets:
         tweet['created_at'] = tweet['created_at'].strftime('%Y-%m-%d %H:%M:%S')
     
-    logger.debug(f"Extracted and sorted {len(all_tweets)} tweets")
+    print(f"Extracted and sorted {len(all_tweets)} tweets")
     return all_tweets  # Return all tweets without limiting
