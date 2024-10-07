@@ -63,25 +63,30 @@ async def save_note_and_add_to_watchlist(update: Update, context: ContextTypes.D
         else:
             news_summary = "No recent news available"
 
+        # Format data
+        outstanding_shares = format_number(security.get("outstandingShares", "N/A"))
+        dtc_shares = format_number(security.get("dtcShares", "N/A"))
+        public_float = format_number(security.get("publicFloat", "N/A"))
+
         row_data = [
             ticker,
             str(user_id),
             username,
             datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             security.get("tierDisplayName", "N/A"),
-            security.get("outstandingShares", "N/A"),
+            outstanding_shares,
             convert_timestamp(security.get("outstandingSharesAsOfDate", "N/A")),
-            security.get("dtcShares", "N/A"),
+            dtc_shares,
             convert_timestamp(security.get("dtcSharesAsOfDate", "N/A")),
-            security.get("publicFloat", "N/A"),
+            public_float,
             convert_timestamp(security.get("publicFloatAsOfDate", "N/A")),
             trade.get("previousClose", "N/A") if trade else "N/A",
-            profile.get("isProfileVerified", False),
+            "TRUE" if profile.get("isProfileVerified", False) else "FALSE",
             convert_timestamp(profile.get("profileVerifiedAsOfDate", "N/A")),
             profile.get("latestFilingType", "N/A"),
             convert_timestamp(profile.get("latestFilingDate", "N/A")),
-            profile.get("latestFilingUrl", "N/A"),
-            profile.get("isCaveatEmptor", False),
+            f"https://www.otcmarkets.com/otcapi{profile.get('latestFilingUrl', 'N/A')}",
+            "TRUE" if profile.get("isCaveatEmptor", False) else "FALSE",
             news_summary,
             user_note
         ]
