@@ -1,4 +1,5 @@
-from telegram import Update, ParseMode
+from telegram import Update
+from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 from api.scrapfly import scrape_tweets
 from models.ticker_data import TickerData

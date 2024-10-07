@@ -1,4 +1,5 @@
 import logging
+from telegram.constants import ParseMode
 from scrapfly import ScrapeConfig, ScrapflyClient
 from config import Config
 from datetime import datetime
