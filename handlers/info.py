@@ -47,16 +47,17 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             logger.debug(f"Trade data: {trade_data}")
             logger.debug(f"News data: {news_data}")
 
-            ticker_data = TickerData(profile_data, trade_data, news_data)
-            TickerData.set(ticker, ticker_data)
-            
             try:
-                response_message = format_response(ticker_data[ticker], ticker)
+                ticker_data = TickerData(profile_data, trade_data, news_data)
+                TickerData.set(ticker, ticker_data)
+                
+                response_message = format_response(ticker_data, ticker)
                 reply_markup = create_reply_markup(ticker)
                 await update.message.reply_text(response_message, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
             except Exception as e:
                 logger.error(f"Error formatting or sending response for {ticker}: {str(e)}")
                 await update.message.reply_text(f"An error occurred while processing data for {ticker}. Please try again later.")
+
             
             break  # If successful, break out of the retry loop
         except (TimedOut, NetworkError) as e:
