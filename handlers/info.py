@@ -117,6 +117,7 @@ def format_response(ticker_data, ticker):
     else:
         news_content += "No recent news available.\n"
 
+
     company_profile = {
         "phone": profile.get("phone", "N/A"),
         "email": profile.get("email", "N/A"),
@@ -150,17 +151,17 @@ def format_response(ticker_data, ticker):
         f"<b>🗓️ Latest Filing Date:</b> {custom_escape_html(latest_filing_date)}\n"
         f"<b>📄 Latest Filing:</b> <a href='{latest_filing_url}'>View Filing</a>\n\n"
         f"{news_content}\n\n"
-        f"<b>📞 Phone:</b> {custom_escape_html(company_profile['phone'])}\n"
-        f"<b>📧 Email:</b> {custom_escape_html(company_profile['email'])}\n"
-        f"<b>🏢 Address:</b> {custom_escape_html(company_profile['address']['address1'])}, {custom_escape_html(company_profile['address']['address2'])}, "
-        f"{custom_escape_html(company_profile['address']['city'])}, {custom_escape_html(company_profile['address']['state'])}, "
-        f"{custom_escape_html(company_profile['address']['zip'])}, {custom_escape_html(company_profile['address']['country'])}\n"
-        f"<b>🌐 Website:</b> {custom_escape_html(company_profile['website'])}\n"
-        f"<b>🐦 Twitter:</b> {custom_escape_html(company_profile['twitter'])}\n"
-        f"<b>🔗 LinkedIn:</b> {custom_escape_html(company_profile['linkedin'])}\n"
-        f"<b>📸 Instagram:</b> {custom_escape_html(company_profile['instagram'])}\n\n"
+        f"<b>📞 Phone:</b> {custom_escape_html(profile.get('phone', 'N/A'))}\n"
+        f"<b>📧 Email:</b> {custom_escape_html(profile.get('email', 'N/A'))}\n"
+        f"<b>🏢 Address:</b> {custom_escape_html(profile.get('address1', 'N/A'))}, {custom_escape_html(profile.get('address2', 'N/A'))}, "
+        f"{custom_escape_html(profile.get('city', 'N/A'))}, {custom_escape_html(profile.get('state', 'N/A'))}, "
+        f"{custom_escape_html(profile.get('zip', 'N/A'))}, {custom_escape_html(profile.get('country', 'N/A'))}\n"
+        f"<b>🌐 Website:</b> {custom_escape_html(profile.get('website', 'N/A'))}\n"
+        f"<b>🐦 Twitter:</b> {custom_escape_html(profile.get('twitter', 'N/A'))}\n"
+        f"<b>🔗 LinkedIn:</b> {custom_escape_html(profile.get('linkedin', 'N/A'))}\n"
+        f"<b>📸 Instagram:</b> {custom_escape_html(profile.get('instagram', 'N/A'))}\n\n"
         f"<b>👥 Officers:</b>\n"
-        + "\n".join([f"{custom_escape_html(officer['name'])} - {custom_escape_html(officer['title'])}" for officer in officers]) + "\n\n"
+        + "\n".join([f"{custom_escape_html(officer['name'])} - {custom_escape_html(officer['title'])}" for officer in profile.get('officers', [])]) + "\n\n"
         f"<b>📝 Business Description:</b> {custom_escape_html(business_desc)}\n"
     )
 
