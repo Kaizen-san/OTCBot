@@ -15,11 +15,11 @@ class TickerData:
 
     @classmethod
     def get(cls, ticker):
-        return cls._instances.get(ticker)
+        return cls._instances.get(ticker.upper())
 
     @classmethod
     def set(cls, ticker, instance):
-        cls._instances[ticker] = instance
+        cls._instances[ticker.upper()] = instance
 
     def get_latest_filing_url(self):
         return self.profile_data.get("latestFilingUrl", "N/A")

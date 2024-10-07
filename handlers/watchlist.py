@@ -39,11 +39,10 @@ async def save_note_and_add_to_watchlist(update: Update, context: ContextTypes.D
         await update.message.reply_text("Sorry, there was an error. Please try adding the stock again.")
         return ConversationHandler.END
 
-    try:
-        ticker_data = TickerData.get(ticker)
-        if not ticker_data:
-            await update.message.reply_text(f"Error: Data not found for {ticker}. Please fetch the info again using /info {ticker}")
-            return ConversationHandler.END
+    ticker_data = TickerData.get(ticker)
+    if not ticker_data:
+        await update.message.reply_text(f"Error: Data not found for {ticker}. Please fetch the info again using /info {ticker}")
+        return ConversationHandler.END
 
         # Extract required information from ticker_data
         profile = ticker_data.profile_data

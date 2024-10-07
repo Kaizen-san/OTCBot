@@ -47,7 +47,8 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             logger.debug(f"Trade data: {trade_data}")
             logger.debug(f"News data: {news_data}")
 
-            ticker_data[ticker] = TickerData(profile_data, trade_data, news_data)
+            ticker_data = TickerData(profile_data, trade_data, news_data)
+            TickerData.set(ticker, ticker_data)
             
             try:
                 response_message = format_response(ticker_data[ticker], ticker)
