@@ -4,7 +4,7 @@ from telegram.ext import ContextTypes, ConversationHandler
 from models.ticker_data import TickerData
 from utils.google_sheets import add_to_sheet, get_watchlist_from_sheet
 from datetime import datetime
-from utils.formatting import convert_timestamp
+from utils.formatting import convert_timestamp, format_number
 
 
 logger = logging.getLogger(__name__)
