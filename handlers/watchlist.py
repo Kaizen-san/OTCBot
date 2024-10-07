@@ -55,6 +55,14 @@ async def save_note_and_add_to_watchlist(update: Update, context: ContextTypes.D
         trade = ticker_data.trade_data
         security = profile.get("securities", [{}])[0]
         
+        # Handle news data
+        news_data = ticker_data.news_data
+        if isinstance(news_data, dict) and 'records' in news_data:
+            news_records = news_data['records'][:3]  # Get up to 3 news items
+            news_summary = "; ".join([f"{news.get('displayDateTime', 'N/A')}: {news.get('title', 'N/A')}" for news in news_records])
+        else:
+            news_summary = "No recent news available"
+
         row_data = [
             ticker,
             str(user_id),
@@ -74,7 +82,7 @@ async def save_note_and_add_to_watchlist(update: Update, context: ContextTypes.D
             convert_timestamp(profile.get("latestFilingDate", "N/A")),
             profile.get("latestFilingUrl", "N/A"),
             profile.get("isCaveatEmptor", False),
-            "; ".join([f"{news['releaseDate']}: {news['title']}" for news in ticker_data.news_data[:3]]),
+            news_summary,
             user_note
         ]
 
