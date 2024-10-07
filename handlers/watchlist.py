@@ -3,6 +3,9 @@ from telegram import Update
 from telegram.ext import ContextTypes, ConversationHandler
 from models.ticker_data import TickerData
 from utils.google_sheets import add_to_sheet, get_watchlist_from_sheet
+from datetime import datetime
+from utils.formatting import convert_timestamp
+
 
 logger = logging.getLogger(__name__)
 
@@ -34,11 +37,13 @@ async def save_note_and_add_to_watchlist(update: Update, context: ContextTypes.D
     ticker = context.user_data.get('current_ticker')
     user_id = update.effective_user.id
     username = update.effective_user.username or "Unknown"
+    logger.info(f"Received note for ticker {ticker}: {user_note}")
 
     if not ticker:
+        logger.error("No ticker found in user_data")
         await update.message.reply_text("Sorry, there was an error. Please try adding the stock again.")
         return ConversationHandler.END
-
+    
     try:
         ticker_data = TickerData.get(ticker)
         if not ticker_data:
@@ -75,8 +80,9 @@ async def save_note_and_add_to_watchlist(update: Update, context: ContextTypes.D
 
         await add_to_sheet(row_data)
         await update.message.reply_text(f"{ticker} has been added to your watchlist with your note!")
+        logger.info(f"Successfully added {ticker} to watchlist for user {user_id} with note: {user_note}")
     except Exception as e:
-        logger.error(f"Error adding {ticker} to watchlist: {str(e)}")
+        logger.error(f"Error adding {ticker} to watchlist: {str(e)}", exc_info=True)
         await update.message.reply_text(f"An error occurred while adding {ticker} to the watchlist. Please try again later.")
     
     return ConversationHandler.END
