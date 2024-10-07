@@ -104,11 +104,13 @@ def format_response(ticker_data, ticker):
 
     caveat_emptor_message = "<b>☠️ Warning - Caveat Emptor: True</b>\n\n" if is_caveat_emptor else ""
 
+    news = ticker_data.news_data
     news_content = "<b>📰 Latest News:</b>\n"
-    if isinstance(news, list) and news:
-        for news_item in news[:3]:
+    if isinstance(news, dict) and 'records' in news and news['records']:
+        for news_item in news['records'][:3]:  # Display up to 3 news items
             news_url = f"https://www.otcmarkets.com/stock/{ticker}/news/{urllib.parse.quote(news_item['title'])}?id={news_item['id']}"
-            news_content += f"• {custom_escape_html(news_item['releaseDate'])}: <a href='{news_url}'>{custom_escape_html(news_item['title'])}</a>\n"
+            news_date = datetime.fromtimestamp(news_item['releaseDate'] / 1000).strftime('%Y-%m-%d')
+            news_content += f"• {news_date}: <a href='{news_url}'>{custom_escape_html(news_item['title'])}</a>\n"
     else:
         news_content += "No recent news available.\n"
 
