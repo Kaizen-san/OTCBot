@@ -35,31 +35,53 @@ async def analyze_report_button(update: Update, context: ContextTypes.DEFAULT_TY
         )
 
 async def perform_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE, ticker: str, ticker_data: TickerData):
-    filing_url = ticker_data.get_latest_filing_url()
-    if not filing_url or filing_url == "N/A":
-        await update.message.reply_text(f"No filing URL available for {ticker}. Unable to perform analysis.")
-        return
-
-    filing_url = get_full_filing_url(filing_url)
+    logger.info(f"Starting analysis for {ticker}")
+    
     try:
-        content = await fetch_filing_content(filing_url)
-        # Rest of your analysis code here
+        # Step 1: Fetch the latest report
+        filing_url = ticker_data.get_latest_filing_url()
+        logger.info(f"Fetching latest report for {ticker} from URL: {filing_url}")
+        if not filing_url or filing_url == "N/A":
+            raise ValueError(f"No valid filing URL found for {ticker}")
+        
+        pdf_content = await fetch_filing_content(filing_url)
+        logger.info(f"PDF content fetched for {ticker}, size: {len(pdf_content)} bytes")
+
+        # Step 2: Extract text from the PDF
+        logger.info(f"Extracting text from PDF for {ticker}")
+        text = extract_text_from_pdf(pdf_content)
+        if not text:
+            raise ValueError(f"Failed to extract text from PDF for {ticker}")
+        logger.info(f"Text extracted for {ticker}, length: {len(text)}")
+
+        # Step 3: Send text + relevant questions to Claude
+        logger.info(f"Sending text and questions to Claude for {ticker}")
+        previous_close_price = ticker_data.get_previous_close_price()
+        analysis = await analyze_with_claude(ticker, text, previous_close_price)
+        
+        # Step 4: Retrieve response from Claude
+        if not analysis:
+            raise ValueError(f"Failed to get analysis from Claude for {ticker}")
+        logger.info(f"Received analysis from Claude for {ticker}")
+
+        # Step 5: Post message to the channel
+        logger.info(f"Formatting and sending analysis for {ticker}")
+        formatted_analysis = parse_claude_response(analysis)
+        await send_analysis(update, context, formatted_analysis)
+        logger.info(f"Analysis sent for {ticker}")
+
+    except ValueError as e:
+        logger.error(f"Value error during analysis for {ticker}: {str(e)}")
+        await update.message.reply_text(str(e))
     except aiohttp.ClientError as e:
-        logger.error(f"Error fetching filing content for {ticker}: {str(e)}")
-        await update.message.reply_text(f"Error fetching filing content for {ticker}. Please try again later.")
-        return
-    
-    if not text:
-        raise Exception("Failed to extract text from document")
-    
-    analysis = await analyze_with_claude(ticker, text, ticker_data.get_previous_close_price())
-    
-    if not analysis:
-        raise Exception("Failed to get a valid response from Claude API")
-    
-    formatted_analysis = parse_claude_response(analysis)
-    
-    await send_analysis(update, context, formatted_analysis)
+        logger.error(f"Network error fetching content for {ticker}: {str(e)}")
+        await update.message.reply_text(f"Error fetching the latest report for {ticker}. Please try again later.")
+    except PyPDF2.errors.PdfReadError as e:
+        logger.error(f"Error reading PDF for {ticker}: {str(e)}")
+        await update.message.reply_text(f"Error reading the PDF document for {ticker}. Please try again later.")
+    except Exception as e:
+        logger.error(f"Unexpected error during analysis for {ticker}: {str(e)}", exc_info=True)
+        await update.message.reply_text(f"An unexpected error occurred during the analysis for {ticker}. Please try again later.")
 
 async def fetch_filing_content(filing_url):
     async with aiohttp.ClientSession() as session:
