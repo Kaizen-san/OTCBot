@@ -43,38 +43,68 @@ async def perform_analysis(message, context: ContextTypes.DEFAULT_TYPE, ticker: 
         await message.reply_text(f"No latest filing URL found for {ticker}.")
         return
 
-    # Construct the full URL
-    base_url = Config.OTC_MARKETS_BASE_URL  # Add this to your config file
-    full_url = urljoin(base_url, filing_url)
+    logger.info(f"Attempting to fetch filing for {ticker} from URL: {filing_url}")
 
     try:
-        content = await fetch_filing_content(full_url)
+        content = await fetch_filing_content(filing_url)
+        if content is None:
+            await message.reply_text(f"Failed to fetch the filing for {ticker}. Please try again later.")
+            return
+
+        logger.info(f"Successfully fetched content for {ticker}. Content size: {len(content)} bytes")
+        
         text = extract_text_from_pdf(content)
         
         if not text:
-            raise Exception("Failed to extract text from document")
+            await message.reply_text(f"Failed to extract text from the filing for {ticker}. The document might be empty or in an unsupported format.")
+            return
+        
+        logger.info(f"Successfully extracted text for {ticker}. Text length: {len(text)} characters")
         
         analysis = await analyze_with_claude(ticker, text, ticker_data.get_previous_close_price())
         
         if not analysis:
-            raise Exception("Failed to get a valid response from Claude API")
+            await message.reply_text(f"Failed to get a valid response from the analysis API for {ticker}. Please try again later.")
+            return
         
         formatted_analysis = parse_claude_response(analysis)
         
         await send_analysis(message, context, formatted_analysis)
     except asyncio.TimeoutError:
+        logger.error(f"Timeout error while fetching filing for {ticker}")
         await message.reply_text(f"The request timed out while fetching the filing for {ticker}. Please try again later.")
     except aiohttp.ClientError as e:
+        logger.error(f"aiohttp ClientError while fetching filing for {ticker}. Error: {str(e)}")
         await message.reply_text(f"An error occurred while fetching the filing for {ticker}: {str(e)}")
     except Exception as e:
-        logger.error(f"Error during analysis for {ticker}: {str(e)}", exc_info=True)
+        logger.error(f"Unexpected error during analysis for {ticker}: {str(e)}", exc_info=True)
         await message.reply_text(f"An unexpected error occurred during the analysis for {ticker}. Please try again later.")
 
 async def fetch_filing_content(filing_url):
-    async with aiohttp.ClientSession() as session:
-        async with session.get(filing_url, timeout=15) as response:
-            response.raise_for_status()
-            return await response.read()
+    full_url = f"{Config.OTC_MARKETS_BASE_URL}{filing_url}"
+    logger.info(f"Attempting to fetch filing from URL: {full_url}")
+    
+    timeout = aiohttp.ClientTimeout(total=60, connect=10, sock_read=30)
+    
+    try:
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(full_url) as response:
+                if response.status == 200:
+                    content = await response.read()
+                    logger.info(f"Successfully fetched content. Size: {len(content)} bytes")
+                    return content
+                else:
+                    logger.error(f"Failed to fetch content. Status code: {response.status}")
+                    return None
+    except asyncio.TimeoutError:
+        logger.error(f"Timeout error while fetching filing from URL: {full_url}")
+        raise
+    except aiohttp.ClientError as e:
+        logger.error(f"aiohttp ClientError while fetching filing from URL: {full_url}. Error: {str(e)}")
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error while fetching filing from URL: {full_url}. Error: {str(e)}")
+        raise
 
 async def send_analysis(message, context, formatted_analysis):
     MAX_MESSAGE_LENGTH = 4000
