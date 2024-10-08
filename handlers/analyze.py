@@ -28,80 +28,49 @@ async def analyze_report_button(update: Update, context: ContextTypes.DEFAULT_TY
     await query.message.reply_text(f"Fetching and analyzing the latest report for {ticker}. This may take a few moments...")
     
     try:
-        await perform_analysis(update, context, ticker, ticker_data)
+        await perform_analysis(query.message, context, ticker, ticker_data)
     except Exception as e:
         logger.error(f"Error during analysis for {ticker}: {str(e)}", exc_info=True)
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text=f"An error occurred during the analysis for {ticker}. Please try again later."
-        )
+        await query.message.reply_text(f"An error occurred during the analysis for {ticker}. Please try again later.")
 
-async def perform_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE, ticker: str, ticker_data: TickerData):
-    logger.info(f"Starting analysis for {ticker}")
-    
+async def perform_analysis(message, context: ContextTypes.DEFAULT_TYPE, ticker: str, ticker_data: TickerData):
+    filing_url = ticker_data.get_latest_filing_url()
+    if not filing_url or filing_url == "N/A":
+        await message.reply_text(f"No latest filing URL found for {ticker}.")
+        return
+
     try:
-        # Step 1: Fetch the latest report
-        filing_url = ticker_data.get_latest_filing_url()
-        logger.info(f"Fetching latest report for {ticker} from URL: {filing_url}")
-        if not filing_url or filing_url == "N/A":
-            raise ValueError(f"No valid filing URL found for {ticker}")
+        content = await fetch_filing_content(filing_url)
+        text = extract_text_from_pdf(content)
         
-        full_url = get_full_filing_url(filing_url)
-        logger.info(f"Full URL for {ticker}: {full_url}")
-        
-        pdf_content = await fetch_filing_content(full_url)
-        logger.info(f"PDF content fetched for {ticker}, size: {len(pdf_content)} bytes")
-        
-        pdf_content = await fetch_filing_content(filing_url)
-        logger.info(f"PDF content fetched for {ticker}, size: {len(pdf_content)} bytes")
-
-        # Step 2: Extract text from the PDF
-        logger.info(f"Extracting text from PDF for {ticker}")
-        text = extract_text_from_pdf(pdf_content)
         if not text:
-            raise ValueError(f"Failed to extract text from PDF for {ticker}")
-        logger.info(f"Text extracted for {ticker}, length: {len(text)}")
-
-        # Step 3: Send text + relevant questions to Claude
-        logger.info(f"Sending text and questions to Claude for {ticker}")
-        previous_close_price = ticker_data.get_previous_close_price()
-        analysis = await analyze_with_claude(ticker, text, previous_close_price)
+            raise Exception("Failed to extract text from document")
         
-        # Step 4: Retrieve response from Claude
+        analysis = await analyze_with_claude(ticker, text, ticker_data.get_previous_close_price())
+        
         if not analysis:
-            raise ValueError(f"Failed to get analysis from Claude for {ticker}")
-        logger.info(f"Received analysis from Claude for {ticker}")
-
-        # Step 5: Post message to the channel
-        logger.info(f"Formatting and sending analysis for {ticker}")
+            raise Exception("Failed to get a valid response from Claude API")
+        
         formatted_analysis = parse_claude_response(analysis)
-        await send_analysis(update, context, formatted_analysis)
-        logger.info(f"Analysis sent for {ticker}")
-
-    except ValueError as e:
-        logger.error(f"Value error during analysis for {ticker}: {str(e)}")
-        await update.message.reply_text(str(e))
-    except aiohttp.ClientError as e:
-        logger.error(f"Network error fetching content for {ticker}: {str(e)}")
-        await update.message.reply_text(f"Error fetching the latest report for {ticker}. Please try again later.")
-    except PyPDF2.errors.PdfReadError as e:
-        logger.error(f"Error reading PDF for {ticker}: {str(e)}")
-        await update.message.reply_text(f"Error reading the PDF document for {ticker}. Please try again later.")
+        
+        await send_analysis(message, context, formatted_analysis)
+    except asyncio.TimeoutError:
+        await message.reply_text(f"The request timed out while fetching the filing for {ticker}. Please try again later.")
     except Exception as e:
-        logger.error(f"Unexpected error during analysis for {ticker}: {str(e)}", exc_info=True)
-        await update.message.reply_text(f"An unexpected error occurred during the analysis for {ticker}. Please try again later.")
+        logger.error(f"Error during analysis for {ticker}: {str(e)}", exc_info=True)
+        await message.reply_text(f"An unexpected error occurred during the analysis for {ticker}. Please try again later.")
 
 async def fetch_filing_content(filing_url):
     async with aiohttp.ClientSession() as session:
-        async with session.get(filing_url) as response:
+        async with session.get(filing_url, timeout=30) as response:
             response.raise_for_status()
             return await response.read()
 
-async def send_analysis(update, context, formatted_analysis):
+async def send_analysis(message, context, formatted_analysis):
     MAX_MESSAGE_LENGTH = 4000
     if len(formatted_analysis) > MAX_MESSAGE_LENGTH:
         chunks = [formatted_analysis[i:i+MAX_MESSAGE_LENGTH] for i in range(0, len(formatted_analysis), MAX_MESSAGE_LENGTH)]
         for chunk in chunks:
-            await context.bot.send_message(chat_id=update.effective_chat.id, text=chunk, parse_mode='HTML')
+            await message.reply_text(chunk, parse_mode=ParseMode.HTML)
     else:
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=formatted_analysis, parse_mode='HTML')
+        await message.reply_text(formatted_analysis, parse_mode=ParseMode.HTML)
