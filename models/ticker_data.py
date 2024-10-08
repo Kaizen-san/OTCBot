@@ -22,7 +22,9 @@ class TickerData:
         cls._instances[ticker.upper()] = instance
 
     def get_latest_filing_url(self):
-        return self.profile_data.get("latestFilingUrl", "N/A")
+        url = self.profile_data.get("latestFilingUrl", "N/A")
+        logger.debug(f"Latest filing URL: {url}")
+        return url
 
     def get_previous_close_price(self):
         return self.trade_data.get("previousClose", "N/A")

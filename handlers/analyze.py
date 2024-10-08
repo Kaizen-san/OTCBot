@@ -35,8 +35,18 @@ async def analyze_report_button(update: Update, context: ContextTypes.DEFAULT_TY
 
 async def perform_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE, ticker: str, ticker_data: TickerData):
     filing_url = ticker_data.get_latest_filing_url()
-    content = await fetch_filing_content(filing_url)
-    text = extract_text_from_pdf(content)
+    if not filing_url or filing_url == "N/A":
+        await update.message.reply_text(f"No filing URL available for {ticker}. Unable to perform analysis.")
+        return
+
+    filing_url = get_full_filing_url(filing_url)
+    try:
+        content = await fetch_filing_content(filing_url)
+        # Rest of your analysis code here
+    except aiohttp.ClientError as e:
+        logger.error(f"Error fetching filing content for {ticker}: {str(e)}")
+        await update.message.reply_text(f"Error fetching filing content for {ticker}. Please try again later.")
+        return
     
     if not text:
         raise Exception("Failed to extract text from document")
