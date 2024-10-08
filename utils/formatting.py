@@ -28,5 +28,5 @@ def custom_escape_html(text):
     return text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
 
 def get_full_filing_url(relative_url):
-    base_url = "https://www.otcmarkets.com/otcapi"
+    base_url = "https://www.otcmarkets.com/"
     return f"{base_url}{relative_url}"

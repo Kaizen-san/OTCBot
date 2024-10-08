@@ -44,6 +44,12 @@ async def perform_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE, t
         if not filing_url or filing_url == "N/A":
             raise ValueError(f"No valid filing URL found for {ticker}")
         
+        full_url = get_full_filing_url(filing_url)
+        logger.info(f"Full URL for {ticker}: {full_url}")
+        
+        pdf_content = await fetch_filing_content(full_url)
+        logger.info(f"PDF content fetched for {ticker}, size: {len(pdf_content)} bytes")
+        
         pdf_content = await fetch_filing_content(filing_url)
         logger.info(f"PDF content fetched for {ticker}, size: {len(pdf_content)} bytes")
 
