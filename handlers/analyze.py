@@ -7,6 +7,7 @@ from models.ticker_data import TickerData
 import aiohttp
 from utils.parsing import parse_claude_response
 from telegram.constants import ParseMode
+from utils.formatting import get_full_filing_url
 
 
 logger = logging.getLogger(__name__)
