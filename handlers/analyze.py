@@ -79,30 +79,16 @@ async def perform_analysis(message, context: ContextTypes.DEFAULT_TYPE, ticker: 
         await message.reply_text(f"An unexpected error occurred during the analysis for {ticker}. Please try again later.")
 
 async def fetch_filing_content(filing_url):
-    full_url = f"{Config.OTC_MARKETS_BASE_URL}{filing_url}"
-    logger.info(f"Attempting to fetch filing from URL: {full_url}")
-    
-    timeout = aiohttp.ClientTimeout(total=60, connect=10, sock_read=30)
-    
-    try:
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.get(full_url) as response:
-                if response.status == 200:
-                    content = await response.read()
-                    logger.info(f"Successfully fetched content. Size: {len(content)} bytes")
-                    return content
-                else:
-                    logger.error(f"Failed to fetch content. Status code: {response.status}")
-                    return None
-    except asyncio.TimeoutError:
-        logger.error(f"Timeout error while fetching filing from URL: {full_url}")
-        raise
-    except aiohttp.ClientError as e:
-        logger.error(f"aiohttp ClientError while fetching filing from URL: {full_url}. Error: {str(e)}")
-        raise
-    except Exception as e:
-        logger.error(f"Unexpected error while fetching filing from URL: {full_url}. Error: {str(e)}")
-        raise
+    logger.info(f"Attempting to fetch filing from URL: {filing_url}")
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    }
+    async with aiohttp.ClientSession() as session:
+        async with session.get(filing_url, headers=headers) as response:
+            response.raise_for_status()
+            content = await response.read()
+            logger.info(f"Successfully fetched content. Size: {len(content)} bytes")
+            return content
 
 async def send_analysis(message, context, formatted_analysis):
     MAX_MESSAGE_LENGTH = 4000
