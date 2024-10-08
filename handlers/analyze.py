@@ -8,6 +8,8 @@ import aiohttp
 from utils.parsing import parse_claude_response
 from telegram.constants import ParseMode
 from utils.formatting import get_full_filing_url
+import PyPDF2
+
 
 
 logger = logging.getLogger(__name__)
