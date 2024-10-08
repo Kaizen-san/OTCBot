@@ -7,7 +7,7 @@ from telegram.error import TimedOut, NetworkError
 from telegram.request import HTTPXRequest
 import asyncio
 
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 rate_limiter = RateLimiter(max_calls=30, time_frame=1)
