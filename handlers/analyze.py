@@ -44,7 +44,7 @@ async def perform_analysis(message, context: ContextTypes.DEFAULT_TYPE, ticker: 
         return
 
     # Construct the full URL correctly
-    base_url = "https://www.otcmarkets.com"
+    base_url = "https://www.otcmarkets.com/otcapi"
     full_url = f"{base_url}{filing_url}"
     
     logger.info(f"Attempting to fetch filing for {ticker} from URL: {full_url}")
