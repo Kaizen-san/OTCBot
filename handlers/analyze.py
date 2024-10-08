@@ -1,12 +1,13 @@
 import asyncio
 import aiohttp
 import logging
-from telegram import Update
+from telegram import Update, Message
 from telegram.ext import ContextTypes
 from models.ticker_data import TickerData
 from utils.pdf_utils import extract_text_from_pdf
 from api.claude import analyze_with_claude
 from utils.parsing import parse_claude_response
+from utils.loading_animation import loading_animation
 
 logger = logging.getLogger(__name__)
 
@@ -21,13 +22,19 @@ async def analyze_report_button(update: Update, context: ContextTypes.DEFAULT_TY
         await query.message.reply_text(f"Sorry, some information is missing for {ticker}. Please fetch the ticker info again.")
         return
 
-    await query.message.reply_text(f"Fetching and analyzing the latest report for {ticker}. This may take a few moments...")
+    loading_message = await query.message.reply_text(f"Fetching and analyzing the latest report for {ticker}...")
+    context.user_data['loading'] = True
+    loading_task = asyncio.create_task(loading_animation(loading_message, f"Analyzing report for {ticker}...", context))
     
     try:
-        await perform_analysis(query.message, context, ticker, ticker_data)
+        await perform_analysis(loading_message, context, ticker, ticker_data)
     except Exception as e:
         logger.error(f"Error during analysis for {ticker}: {str(e)}", exc_info=True)
         await query.message.reply_text(f"An error occurred during the analysis for {ticker}. Please try again later.")
+    finally:
+        context.user_data['loading'] = False
+        await loading_task
+        await loading_message.delete()
 
 async def perform_analysis(message, context: ContextTypes.DEFAULT_TYPE, ticker: str, ticker_data: TickerData):
     filing_url = ticker_data.get_latest_filing_url()
