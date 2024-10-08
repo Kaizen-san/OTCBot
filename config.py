@@ -8,5 +8,5 @@ class Config:
     ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "DEFAULT_TOKEN_NOT_SET")
     WEBHOOK_URL = os.environ.get("MAKE_WEBHOOK", "DEFAULT_TOKEN_NOT_SET")
     SCRAPFLY_API_KEY =  os.environ.get("SCRAPFLY", "DEFAULT_TOKEN_NOT_SET")
-    OTC_MARKETS_BASE_URL = "https://www.otcmarkets.com"
+    OTC_MARKETS_BASE_URL = "https://www.otcmarkets.com/otcapi"
 
