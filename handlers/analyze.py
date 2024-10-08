@@ -9,6 +9,10 @@ from utils.parsing import parse_claude_response
 from telegram.constants import ParseMode
 from utils.formatting import get_full_filing_url
 import PyPDF2
+from config import Config
+from urllib.parse import urljoin
+import asyncio
+
 
 
 
@@ -39,8 +43,12 @@ async def perform_analysis(message, context: ContextTypes.DEFAULT_TYPE, ticker: 
         await message.reply_text(f"No latest filing URL found for {ticker}.")
         return
 
+    # Construct the full URL
+    base_url = Config.OTC_MARKETS_BASE_URL  # Add this to your config file
+    full_url = urljoin(base_url, filing_url)
+
     try:
-        content = await fetch_filing_content(filing_url)
+        content = await fetch_filing_content(full_url)
         text = extract_text_from_pdf(content)
         
         if not text:
@@ -56,13 +64,15 @@ async def perform_analysis(message, context: ContextTypes.DEFAULT_TYPE, ticker: 
         await send_analysis(message, context, formatted_analysis)
     except asyncio.TimeoutError:
         await message.reply_text(f"The request timed out while fetching the filing for {ticker}. Please try again later.")
+    except aiohttp.ClientError as e:
+        await message.reply_text(f"An error occurred while fetching the filing for {ticker}: {str(e)}")
     except Exception as e:
         logger.error(f"Error during analysis for {ticker}: {str(e)}", exc_info=True)
         await message.reply_text(f"An unexpected error occurred during the analysis for {ticker}. Please try again later.")
 
 async def fetch_filing_content(filing_url):
     async with aiohttp.ClientSession() as session:
-        async with session.get(filing_url, timeout=30) as response:
+        async with session.get(filing_url, timeout=15) as response:
             response.raise_for_status()
             return await response.read()
 
