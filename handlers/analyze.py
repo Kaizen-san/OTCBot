@@ -9,6 +9,13 @@ from api.claude import analyze_with_claude
 from utils.parsing import parse_claude_response
 from utils.loading_animation import loading_animation
 
+"""
+Document analysis module.
+Manages the process of analyzing financial reports and documents, including PDF text extraction,
+Claude AI integration, and formatting analysis results for Telegram messages.
+
+"""
+
 logger = logging.getLogger(__name__)
 
 async def analyze_report_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

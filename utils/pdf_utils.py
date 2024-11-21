@@ -2,6 +2,14 @@ import PyPDF2
 import io
 import logging
 
+"""
+PDF processing utilities module.
+Provides functionality for extracting text content from PDF files,
+particularly for financial reports and documents.
+
+"""
+
+
 logger = logging.getLogger(__name__)
 
 def extract_text_from_pdf(pdf_content):

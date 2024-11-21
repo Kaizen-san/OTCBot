@@ -12,6 +12,13 @@ from telegram.error import TimedOut, NetworkError
 from datetime import datetime
 
 
+"""
+Stock information retrieval and formatting module.
+Handles fetching and formatting comprehensive stock information from various sources,
+creating formatted messages with stock data, and managing interactive buttons.
+
+"""
+
 
 logger = logging.getLogger(__name__)
 

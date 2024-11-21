@@ -1,6 +1,13 @@
 import re
 import logging
 
+"""
+Response parsing module.
+Handles parsing and formatting of AI responses and other structured data
+for presentation in Telegram messages.
+
+"""
+
 logger = logging.getLogger(__name__)
 
 def parse_claude_response(response):

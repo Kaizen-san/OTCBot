@@ -7,6 +7,14 @@ from datetime import datetime
 from utils.formatting import convert_timestamp, format_number
 
 
+"""
+Watchlist management module.
+Handles all watchlist-related functionality including adding stocks, managing notes,
+and retrieving watchlist data from Google Sheets.
+
+"""
+
+
 logger = logging.getLogger(__name__)
 
 WAITING_FOR_NOTE = 1

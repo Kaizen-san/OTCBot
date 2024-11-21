@@ -5,6 +5,13 @@ from config import Config
 from datetime import datetime
 import json
 
+"""
+Web scraping module using the Scrapfly API.
+Provides functionality to scrape social media data, particularly from X.com (Twitter),
+handling the extraction and processing of tweet data for financial analysis.
+
+"""
+
 logger = logging.getLogger(__name__)
 
 SCRAPFLY = ScrapflyClient(key=Config.SCRAPFLY_API_KEY)

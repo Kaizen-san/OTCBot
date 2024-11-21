@@ -1,5 +1,12 @@
 from datetime import datetime
 
+"""
+Text and data formatting utilities module.
+Contains helper functions for formatting numbers, dates, timestamps, and HTML content
+for Telegram messages.
+
+"""
+
 def format_number(value):
     try:
         return "{:,}".format(int(value))

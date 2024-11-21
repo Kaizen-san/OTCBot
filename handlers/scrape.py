@@ -7,6 +7,13 @@ import logging
 import asyncio
 from utils.loading_animation import loading_animation
 
+"""
+Social media scraping handler module.
+Manages the process of scraping and formatting social media data for stocks,
+particularly focusing on X.com (Twitter) profile data and recent tweets.
+
+"""
+
 logger = logging.getLogger(__name__)
 
 async def scrape_x_profile(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

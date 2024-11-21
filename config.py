@@ -1,5 +1,12 @@
 import os
 
+"""
+Configuration management module that handles environment variables and global settings.
+Contains the Config class which provides centralized access to API tokens, credentials,
+and other configuration values used throughout the application.
+
+"""
+
 class Config:
     TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "DEFAULT_TOKEN_NOT_SET")
     print(f"Config: TELEGRAM_TOKEN = {TELEGRAM_TOKEN}")

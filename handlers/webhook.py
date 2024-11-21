@@ -4,6 +4,13 @@ from telegram import Update
 from telegram.ext import ContextTypes
 from config import Config
 
+"""
+Webhook integration module.
+Manages external webhook notifications for stock-related events and updates,
+handling the sending of data to configured webhook endpoints.
+
+"""
+
 logger = logging.getLogger(__name__)
 
 async def send_to_webhook(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

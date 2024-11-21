@@ -2,6 +2,13 @@ import gspread
 from google.oauth2.service_account import Credentials
 from config import Config
 
+"""
+Google Sheets integration module.
+Handles all interactions with Google Sheets API for storing and retrieving
+watchlist data and other persistent storage needs.
+
+"""
+
 scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
 creds = Credentials.from_service_account_file(Config.GOOGLE_APPLICATION_CREDENTIALS, scopes=scope)
 client = gspread.authorize(creds)

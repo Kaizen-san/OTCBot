@@ -1,6 +1,13 @@
 from datetime import datetime
 import logging
 
+"""
+Stock ticker data management module.
+Provides a centralized class for storing and managing stock-related data,
+implementing caching and data freshness checking.
+
+"""
+
 logger = logging.getLogger(__name__)
 
 class TickerData:

@@ -7,6 +7,13 @@ from telegram.error import TimedOut, NetworkError
 from telegram.request import HTTPXRequest
 import asyncio
 
+"""
+Application entry point and bot initialization module.
+Sets up the Telegram bot with command handlers, conversation handlers,
+and callback query handlers. Configures logging and starts the bot polling process.
+
+"""
+
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 

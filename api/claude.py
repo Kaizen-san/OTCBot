@@ -2,6 +2,13 @@ import logging
 from anthropic import AsyncAnthropic, Anthropic
 from config import Config
 
+"""
+Interface module for the Claude AI API integration.
+Handles communication with Claude AI for analyzing financial documents and reports.
+Provides functionality to process and analyze text content with specific financial metrics.
+
+"""
+
 logger = logging.getLogger(__name__)
 
 async def analyze_with_claude(ticker, text_content, previous_close_price):

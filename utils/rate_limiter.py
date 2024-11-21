@@ -1,5 +1,12 @@
 import time
 
+"""
+Rate limiting implementation module.
+Provides rate limiting functionality to prevent API abuse and ensure
+compliance with external service limits.
+
+"""
+
 class RateLimiter:
     def __init__(self, max_calls, time_frame):
         self.max_calls = max_calls

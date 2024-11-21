@@ -2,6 +2,13 @@ import asyncio
 from telegram import Message
 from telegram.ext import ContextTypes
 
+"""
+UI feedback module.
+Provides animated loading indicators for long-running operations in
+Telegram messages.
+
+"""
+
 async def loading_animation(message: Message, text: str, context: ContextTypes.DEFAULT_TYPE):
     animation = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
     i = 0

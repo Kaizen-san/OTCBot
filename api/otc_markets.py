@@ -2,6 +2,13 @@ import aiohttp
 import logging
 from utils.rate_limiter import rate_limited_request
 
+"""
+OTC Markets API client module.
+Handles all interactions with the OTC Markets API, including fetching company profiles,
+trade data, and news. Implements rate limiting and error handling for API requests.
+
+"""
+
 logger = logging.getLogger(__name__)
 
 BASE_URL = "https://backend.otcmarkets.com/otcapi"
