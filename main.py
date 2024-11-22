@@ -33,7 +33,7 @@ def main() -> None:
 
     # Create ConversationHandler
     conv_handler = ConversationHandler(
-        entry_points=[CallbackQueryHandler(watchlist.add_to_watchlist, pattern="^addwatchlist")],
+        entry_points=[CallbackQueryHandler(watchlist.add_to_watchlist, pattern="^add_watchlist_")],  # Changed pattern
         states={
             watchlist.WAITING_FOR_NOTE: [MessageHandler(filters.TEXT & ~filters.COMMAND, watchlist.save_note_and_add_to_watchlist)],
         },
@@ -47,8 +47,8 @@ def main() -> None:
     application.add_handler(CommandHandler("start", start.start))
     application.add_handler(CommandHandler("info", info.info))
     application.add_handler(CommandHandler("wl", watchlist.view_watchlist))
-    application.add_handler(CallbackQueryHandler(analyze.analyze_report_button, pattern="^analyzereport"))
-    application.add_handler(CallbackQueryHandler(scrape.scrape_x_profile, pattern="^scrape_xprofile"))
+    application.add_handler(CallbackQueryHandler(analyze.analyze_report_button, pattern="^analyzereport_"))
+    application.add_handler(CallbackQueryHandler(scrape.scrape_x_profile, pattern="^scrape_xprofile_"))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, info.info))
 
     # Set up post-init hook where we connect to the database
@@ -57,5 +57,5 @@ def main() -> None:
     # Start the bot
     application.run_polling(poll_interval=1.0)
 
-if name == "main":
+if __name__ == "__main__":
     main()
