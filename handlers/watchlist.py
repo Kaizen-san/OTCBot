@@ -7,6 +7,8 @@ from datetime import datetime
 from utils.formatting import convert_timestamp, format_number
 from main import db
 
+logger = logging.getLogger(__name__)
+
 
 """
 Watchlist management module.
