@@ -13,7 +13,6 @@ from utils.data_access import DataAccess
 Application entry point and bot initialization module.
 Sets up the Telegram bot with command handlers, conversation handlers,
 and callback query handlers. Configures logging and starts the bot polling process.
-
 """
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.DEBUG)
@@ -35,9 +34,6 @@ async def main() -> None:
     await initialize()
 
     application = Application.builder().token(Config.TELEGRAM_TOKEN).build()
-
-    # Connect to the database when starting the app
-    await db.connect()
 
     # Create ConversationHandler
     conv_handler = ConversationHandler(
@@ -62,9 +58,9 @@ async def main() -> None:
     # Set up post-init hook
     application.post_init = post_init
 
-    # Start the bot
-    application.run_polling(poll_interval=1.0)
-    
+    # Start the bot - Changed to await
+    await application.run_polling(poll_interval=1.0)
 
 if __name__ == "__main__":
-    main()
+    # Run the async main function
+    asyncio.run(main())
