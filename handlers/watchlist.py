@@ -104,6 +104,7 @@ async def save_note_and_add_to_watchlist(update: Update, context: ContextTypes.D
             'notes': user_note
         }
 
+        logger.info(f"Attempting to add {ticker} to watchlist for user {user_id}")
         success = await db.add_stock_to_watchlist(values)
         
         if success:

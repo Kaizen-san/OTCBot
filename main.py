@@ -27,6 +27,9 @@ async def post_init(application: Application) -> None:
     await start.setup_commands(application.bot)
     # Connect to database during initialization
     await db.connect()
+    logger.info("Database connection established")
+    
+    application = Application.builder().token(Config.TELEGRAM_TOKEN).build()
 
 def main() -> None:
     application = Application.builder().token(Config.TELEGRAM_TOKEN).build()
@@ -56,6 +59,7 @@ def main() -> None:
 
     # Start the bot
     application.run_polling(poll_interval=1.0)
+    
 
 if __name__ == "__main__":
     main()
