@@ -15,24 +15,20 @@ Sets up the Telegram bot with command handlers, conversation handlers,
 and callback query handlers. Configures logging and starts the bot polling process.
 """
 
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.DEBUG)
+llogging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 rate_limiter = RateLimiter(max_calls=30, time_frame=1)
 
-async def post_init(application: Application) -> None:
-    await start.setup_commands(application.bot)
-
 # Initialize the database instance
 db = DataAccess()
 
-async def initialize():
+async def post_init(application: Application) -> None:
+    await start.setup_commands(application.bot)
+    # Connect to database during initialization
     await db.connect()
 
-async def main() -> None:
-    # Connect to the database
-    await initialize()
-
+def main() -> None:
     application = Application.builder().token(Config.TELEGRAM_TOKEN).build()
 
     # Create ConversationHandler
@@ -55,12 +51,11 @@ async def main() -> None:
     application.add_handler(CallbackQueryHandler(scrape.scrape_x_profile, pattern="^scrape_x_profile_"))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, info.info))
 
-    # Set up post-init hook
+    # Set up post-init hook where we connect to the database
     application.post_init = post_init
 
-    # Start the bot - Changed to await
-    await application.run_polling(poll_interval=1.0)
+    # Start the bot
+    application.run_polling(poll_interval=1.0)
 
 if __name__ == "__main__":
-    # Run the async main function
-    asyncio.run(main())
+    main()
