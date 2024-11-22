@@ -6,7 +6,7 @@ from utils.rate_limiter import RateLimiter
 from telegram.error import TimedOut, NetworkError
 from telegram.request import HTTPXRequest
 import asyncio
-from data_access import DataAccess
+from handlers import DataAccess
 
 
 """
@@ -33,7 +33,7 @@ async def initialize():
 async def main() -> None:
     # Connect to the database
     await initialize()
-    
+
     application = Application.builder().token(Config.TELEGRAM_TOKEN).build()
 
     # Connect to the database when starting the app
