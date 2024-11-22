@@ -15,7 +15,7 @@ and callback query handlers. Configures logging and starts the bot polling proce
 """
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.DEBUG)
-logger = logging.getLogger(name)
+logger = logging.getLogger(__name__)
 
 rate_limiter = RateLimiter(max_calls=30, time_frame=1)
 
