@@ -27,7 +27,13 @@ async def post_init(application: Application) -> None:
 # Initialize the database instance
 db = DataAccess()
 
-def main() -> None:
+async def initialize():
+    await db.connect()
+
+async def main() -> None:
+    # Connect to the database
+    await initialize()
+    
     application = Application.builder().token(Config.TELEGRAM_TOKEN).build()
 
     # Connect to the database when starting the app
