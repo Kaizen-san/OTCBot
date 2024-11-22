@@ -1,35 +1,25 @@
 from typing import List, Tuple
 import asyncpg
 import logging
+from config import Config
 
 logger = logging.getLogger(__name__)
 
-class DataAccess:
     """
     Database access layer - solely responsible for database communication.
     Handles raw database queries and returns raw data.
     """
-    
-    def __init__(self, connection_params: dict):
-        """Initialize with database connection parameters"""
+
+class DataAccess:
+    def __init__(self):
         self.pool = None
-        self.connection_params = connection_params
+        self._db_url = Config.DATABASE_URL.replace("postgres://", "postgresql://", 1) if Config.DATABASE_URL else None
 
     async def connect(self):
-        """Establish database connection pool"""
         if not self.pool:
-            self.pool = await asyncpg.create_pool(**self.connection_params)
-
-    async def disconnect(self):
-        """Close database connection pool"""
-        if self.pool:
-            await self.pool.close()
+            self.pool = await asyncpg.create_pool(self._db_url)
 
     async def add_stock_to_watchlist(self, values: dict) -> bool:
-        """
-        Raw database operation to insert/update a stock in watchlist
-        Returns True if successful, False otherwise
-        """
         try:
             async with self.pool.acquire() as conn:
                 await conn.execute('''
@@ -54,16 +44,11 @@ class DataAccess:
                 values['filing_link'], values['is_caveat_emptor'], 
                 values['latest_news'], values['notes'])
                 return True
-
         except Exception as e:
             logger.error(f"Database error in add_stock_to_watchlist: {e}")
             return False
 
     async def get_user_watchlist(self, user_id: int) -> List[Tuple[str, str]]:
-        """
-        Raw database operation to get user's watchlist
-        Returns list of (ticker, notes) tuples
-        """
         try:
             async with self.pool.acquire() as conn:
                 rows = await conn.fetch('''
@@ -73,7 +58,6 @@ class DataAccess:
                     ORDER BY date_added DESC
                 ''', user_id)
                 return [(row['ticker'], row['notes']) for row in rows]
-
         except Exception as e:
             logger.error(f"Database error in get_user_watchlist: {e}")
             return []
