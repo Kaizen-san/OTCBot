@@ -8,7 +8,6 @@ from telegram.request import HTTPXRequest
 import asyncio
 from utils.data_access import DataAccess
 
-
 """
 Application entry point and bot initialization module.
 Sets up the Telegram bot with command handlers, conversation handlers,
@@ -16,7 +15,7 @@ and callback query handlers. Configures logging and starts the bot polling proce
 """
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.DEBUG)
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(name)
 
 rate_limiter = RateLimiter(max_calls=30, time_frame=1)
 
@@ -29,12 +28,12 @@ async def post_init(application: Application) -> None:
     await db.connect()
     logger.info("Database connection established")
 
-async def main() -> None:  # Changed to async
+def main() -> None:
     application = Application.builder().token(Config.TELEGRAM_TOKEN).build()
 
     # Create ConversationHandler
     conv_handler = ConversationHandler(
-        entry_points=[CallbackQueryHandler(watchlist.add_to_watchlist, pattern="^add_watchlist_")],
+        entry_points=[CallbackQueryHandler(watchlist.add_to_watchlist, pattern="^addwatchlist")],
         states={
             watchlist.WAITING_FOR_NOTE: [MessageHandler(filters.TEXT & ~filters.COMMAND, watchlist.save_note_and_add_to_watchlist)],
         },
@@ -48,15 +47,15 @@ async def main() -> None:  # Changed to async
     application.add_handler(CommandHandler("start", start.start))
     application.add_handler(CommandHandler("info", info.info))
     application.add_handler(CommandHandler("wl", watchlist.view_watchlist))
-    application.add_handler(CallbackQueryHandler(analyze.analyze_report_button, pattern="^analyze_report_"))
-    application.add_handler(CallbackQueryHandler(scrape.scrape_x_profile, pattern="^scrape_x_profile_"))
+    application.add_handler(CallbackQueryHandler(analyze.analyze_report_button, pattern="^analyzereport"))
+    application.add_handler(CallbackQueryHandler(scrape.scrape_x_profile, pattern="^scrape_xprofile"))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, info.info))
 
     # Set up post-init hook where we connect to the database
     application.post_init = post_init
 
     # Start the bot
-    await application.run_polling(poll_interval=1.0)  # Added await here
+    application.run_polling(poll_interval=1.0)
 
-if __name__ == "__main__":
-    asyncio.run(main())  # Run the async main function
+if name == "main":
+    main()
