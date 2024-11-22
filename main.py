@@ -6,7 +6,7 @@ from utils.rate_limiter import RateLimiter
 from telegram.error import TimedOut, NetworkError
 from telegram.request import HTTPXRequest
 import asyncio
-from handlers import DataAccess
+from utils.data_access import DataAccess
 
 
 """
