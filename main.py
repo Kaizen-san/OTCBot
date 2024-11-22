@@ -6,6 +6,8 @@ from utils.rate_limiter import RateLimiter
 from telegram.error import TimedOut, NetworkError
 from telegram.request import HTTPXRequest
 import asyncio
+from data_access import DataAccess
+
 
 """
 Application entry point and bot initialization module.
@@ -22,8 +24,14 @@ rate_limiter = RateLimiter(max_calls=30, time_frame=1)
 async def post_init(application: Application) -> None:
     await start.setup_commands(application.bot)
 
+# Initialize the database instance
+db = DataAccess()
+
 def main() -> None:
     application = Application.builder().token(Config.TELEGRAM_TOKEN).build()
+
+    # Connect to the database when starting the app
+    await db.connect()
 
     # Create ConversationHandler
     conv_handler = ConversationHandler(
@@ -50,6 +58,7 @@ def main() -> None:
 
     # Start the bot
     application.run_polling(poll_interval=1.0)
+    
 
 if __name__ == "__main__":
     main()
