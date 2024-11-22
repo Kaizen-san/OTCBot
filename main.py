@@ -15,7 +15,7 @@ Sets up the Telegram bot with command handlers, conversation handlers,
 and callback query handlers. Configures logging and starts the bot polling process.
 """
 
-llogging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.DEBUG)
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 rate_limiter = RateLimiter(max_calls=30, time_frame=1)
