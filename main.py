@@ -23,10 +23,16 @@ rate_limiter = RateLimiter(max_calls=30, time_frame=1)
 db = DataAccess()
 
 async def post_init(application: Application) -> None:
-    await start.setup_commands(application.bot)
-    # Connect to database during initialization
-    await db.connect()
-    logger.info("Database connection established")
+    """Initialize bot commands and database connection"""
+    try:
+        # Connect to database first
+        await db.connect()
+        logger.info("Database connection established")
+        # Then set up commands
+        await start.setup_commands(application.bot)
+    except Exception as e:
+        logger.error(f"Failed to initialize: {e}")
+        raise
 
 def main() -> None:
     application = Application.builder().token(Config.TELEGRAM_TOKEN).build()

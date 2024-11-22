@@ -15,10 +15,19 @@ class DataAccess:
     def __init__(self):
         self.pool = None
         self._db_url = Config.DATABASE_URL.replace("postgres://", "postgresql://", 1) if Config.DATABASE_URL else None
+        logger.info(f"Database URL configured: {'Yes' if self._db_url else 'No'}")
 
     async def connect(self):
         if not self.pool:
-            self.pool = await asyncpg.create_pool(self._db_url)
+            try:
+                if not self._db_url:
+                    raise Exception("Database URL not configured")
+                logger.info("Connecting to database...")
+                self.pool = await asyncpg.create_pool(self._db_url)
+                logger.info("Database pool created successfully")
+            except Exception as e:
+                logger.error(f"Failed to create database pool: {e}")
+                raise
 
     async def add_stock_to_watchlist(self, values: dict) -> bool:
         try:
