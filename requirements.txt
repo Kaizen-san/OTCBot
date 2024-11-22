@@ -7,4 +7,6 @@ aiohttp==3.10.5
 PyPDF2==3.0.1
 tenacity==9.0.0
 scrapfly-sdk==0.8.18
+asyncpg==0.30.0
+
 
