@@ -28,10 +28,8 @@ async def post_init(application: Application) -> None:
     # Connect to database during initialization
     await db.connect()
     logger.info("Database connection established")
-    
-    application = Application.builder().token(Config.TELEGRAM_TOKEN).build()
 
-def main() -> None:
+async def main() -> None:  # Changed to async
     application = Application.builder().token(Config.TELEGRAM_TOKEN).build()
 
     # Create ConversationHandler
@@ -58,8 +56,7 @@ def main() -> None:
     application.post_init = post_init
 
     # Start the bot
-    application.run_polling(poll_interval=1.0)
-    
+    await application.run_polling(poll_interval=1.0)  # Added await here
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())  # Run the async main function
