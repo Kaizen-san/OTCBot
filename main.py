@@ -23,18 +23,16 @@ rate_limiter = RateLimiter(max_calls=30, time_frame=1)
 db = DataAccess()
 
 async def post_init(application: Application) -> None:
-    """Initialize bot commands and database connection"""
-    try:
-        # Connect to database first
-        await db.connect()
-        logger.info("Database connection established")
-        # Then set up commands
-        await start.setup_commands(application.bot)
-    except Exception as e:
-        logger.error(f"Failed to initialize: {e}")
-        raise
+    await start.setup_commands(application.bot)
 
 def main() -> None:
+
+    # Run database connection in the event loop
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(db.connect())
+    logger.info("Database connection established")
+
     application = Application.builder().token(Config.TELEGRAM_TOKEN).build()
 
     # Create ConversationHandler
