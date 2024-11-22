@@ -3,12 +3,13 @@ import asyncpg
 import logging
 from config import Config
 
-logger = logging.getLogger(__name__)
+"""
+Database access layer - solely responsible for database communication.
+Handles raw database queries and returns raw data.
 
-    """
-    Database access layer - solely responsible for database communication.
-    Handles raw database queries and returns raw data.
-    """
+"""
+
+logger = logging.getLogger(__name__)
 
 class DataAccess:
     def __init__(self):
