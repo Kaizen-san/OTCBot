@@ -86,23 +86,23 @@ async def save_note_and_add_to_watchlist(update: Update, context: ContextTypes.D
         else:
             news_summary = "No recent news available"
 
-        # Prepare values for database insertion
+        # Prepare values for database insertion using existing formatting functions
         values = {
             'ticker': ticker,
             'user_id': user_id,
             'username': username,
             'ticker_info': profile.get('businessDesc', 'N/A'),
-            'outstanding_shares': security.get('outstandingShares', 0),
-            'os_as_of': security.get('outstandingSharesAsOfDate'),
-            'held_at_dtc': security.get('dtcShares', 0),
-            'held_at_dtc_as_of': security.get('dtcSharesAsOfDate'),
-            'float_shares': security.get('publicFloat', 0),
-            'float_as_of': security.get('publicFloatAsOfDate'),
+            'outstanding_shares': format_number(security.get('outstandingShares', 0)),
+            'os_as_of': convert_timestamp(security.get('outstandingSharesAsOfDate')),
+            'held_at_dtc': format_number(security.get('dtcShares', 0)),
+            'held_at_dtc_as_of': convert_timestamp(security.get('dtcSharesAsOfDate')),
+            'float_shares': format_number(security.get('publicFloat', 0)),
+            'float_as_of': convert_timestamp(security.get('publicFloatAsOfDate')),
             'last_close_price': trade.get('previousClose', 0) if trade else 0,
             'profile_verified': profile.get('isProfileVerified', False),
-            'verification_date': profile.get('profileVerifiedAsOfDate'),
+            'verification_date': convert_timestamp(profile.get('profileVerifiedAsOfDate')),
             'latest_filing_type': profile.get('latestFilingType', 'N/A'),
-            'filing_date': profile.get('latestFilingDate'),
+            'filing_date': convert_timestamp(profile.get('latestFilingDate')),
             'filing_link': f"https://www.otcmarkets.com/otcapi{profile.get('latestFilingUrl', '')}",
             'is_caveat_emptor': profile.get('isCaveatEmptor', False),
             'latest_news': news_summary,
@@ -122,9 +122,4 @@ async def save_note_and_add_to_watchlist(update: Update, context: ContextTypes.D
         logger.error(f"Error adding {ticker} to watchlist: {e}", exc_info=True)
         await update.message.reply_text(f"An error occurred while adding {ticker} to the watchlist. Please try again later.")
 
-    return ConversationHandler.END
-
-async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Handler for canceling the operation"""
-    await update.message.reply_text("Operation cancelled.")
     return ConversationHandler.END
