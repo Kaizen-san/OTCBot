@@ -4,7 +4,7 @@ from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 from telegram.error import BadRequest
 from api.otc_markets import get_profile_data, get_trade_data, get_news_data
-from utils.formatting import format_number, convert_timestamp, custom_escape_html
+from utils.formatting import format_number, format_timestamp, custom_escape_html
 from models.ticker_data import TickerData
 import urllib.parse
 import asyncio
@@ -90,18 +90,18 @@ def format_response(ticker_data, ticker):
 
     security = profile.get("securities", [{}])[0]
     outstanding_shares = format_number(security.get("outstandingShares", "N/A"))
-    outstanding_shares_date = convert_timestamp(security.get("outstandingSharesAsOfDate", "N/A"))
+    outstanding_shares_date = format_timestamp(security.get("outstandingSharesAsOfDate", "N/A"))
     held_at_dtc = format_number(security.get("dtcShares", "N/A"))
-    dtc_shares_date = convert_timestamp(security.get("dtcSharesAsOfDate", "N/A"))
+    dtc_shares_date = format_timestamp(security.get("dtcSharesAsOfDate", "N/A"))
     public_float = format_number(security.get("publicFloat", "N/A"))
-    public_float_date = convert_timestamp(security.get("publicFloatAsOfDate", "N/A"))
+    public_float_date = format_timestamp(security.get("publicFloatAsOfDate", "N/A"))
     tier_display_name = security.get("tierDisplayName", "N/A")
 
     profile_verified = profile.get("isProfileVerified", False)
-    profile_verified_date = convert_timestamp(profile.get("profileVerifiedAsOfDate", "N/A"))
+    profile_verified_date = format_timestamp(profile.get("profileVerifiedAsOfDate", "N/A"))
 
     latest_filing_type = profile.get("latestFilingType", "N/A")
-    latest_filing_date = convert_timestamp(profile.get("latestFilingDate", "N/A"))
+    latest_filing_date = format_timestamp(profile.get("latestFilingDate", "N/A"))
     latest_filing_url = profile.get("latestFilingUrl", "N/A")
     if latest_filing_url and latest_filing_url != "N/A":
         latest_filing_url = f"https://www.otcmarkets.com/otcapi{latest_filing_url}"

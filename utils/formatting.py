@@ -13,7 +13,27 @@ def format_number(value):
     except (ValueError, TypeError):
         return value
 
+from datetime import datetime
+
 def convert_timestamp(date_str):
+    """Convert timestamp to datetime object for database storage"""
+    if date_str == "N/A":
+        return None
+    try:
+        if isinstance(date_str, (int, float)):
+            return datetime.utcfromtimestamp(date_str / 1000)
+        elif isinstance(date_str, str):
+            try:
+                return datetime.strptime(date_str, "%m/%d/%Y")
+            except ValueError:
+                return None
+        else:
+            return None
+    except Exception:
+        return None
+
+def format_timestamp(date_str):
+    """Format timestamp for display purposes"""
     if date_str == "N/A":
         return "N/A"
     try:
