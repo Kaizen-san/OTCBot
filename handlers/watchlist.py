@@ -115,13 +115,14 @@ async def save_note_and_add_to_watchlist(update: Update, context: ContextTypes.D
         if success:
             await update.message.reply_text(f"{ticker} has been added to your watchlist with your note!")
             logger.info(f"Successfully added {ticker} to watchlist for user {user_id}")
+            return ConversationHandler.END
         else:
             raise Exception("Failed to add to watchlist")
 
     except Exception as e:
         logger.error(f"Error adding {ticker} to watchlist: {e}", exc_info=True)
         await update.message.reply_text(f"An error occurred while adding {ticker} to the watchlist. Please try again later.")
-
+    return ConversationHandler.END
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Cancels and ends the conversation."""
     await update.message.reply_text('Operation cancelled. You can start a new operation anytime.')
