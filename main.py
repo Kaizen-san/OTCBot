@@ -68,11 +68,8 @@ def main() -> None:
         # Set up post-init hook
         application.post_init = post_init
 
-        # Run the bot
-        loop.run_until_complete(application.initialize())
-        loop.run_until_complete(application.start())
-        loop.run_until_complete(application.run_polling())
-        loop.run_forever()
+        # Start the bot
+        application.run_polling(poll_interval=1.0)
         
     except Exception as e:
         logger.error(f"Error in main: {e}")
