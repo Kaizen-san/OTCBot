@@ -92,11 +92,11 @@ async def save_note_and_add_to_watchlist(update: Update, context: ContextTypes.D
             'user_id': user_id,
             'username': username,
             'ticker_info': profile.get('businessDesc', 'N/A'),
-            'outstanding_shares': format_number(security.get('outstandingShares', 0)),
+            'outstanding_shares': security.get('outstandingShares', 0),  # Raw number
             'os_as_of': convert_timestamp(security.get('outstandingSharesAsOfDate')),
-            'held_at_dtc': format_number(security.get('dtcShares', 0)),
+            'held_at_dtc': security.get('dtcShares', 0),  # Raw number
             'held_at_dtc_as_of': convert_timestamp(security.get('dtcSharesAsOfDate')),
-            'float_shares': format_number(security.get('publicFloat', 0)),
+            'float_shares': security.get('publicFloat', 0),  # Raw number
             'float_as_of': convert_timestamp(security.get('publicFloatAsOfDate')),
             'last_close_price': trade.get('previousClose', 0) if trade else 0,
             'profile_verified': profile.get('isProfileVerified', False),
