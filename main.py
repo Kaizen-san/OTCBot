@@ -25,51 +25,60 @@ db = DataAccess()
 async def post_init(application: Application) -> None:
     await start.setup_commands(application.bot)
 
-def init_database():
-    """Initialize database connection synchronously"""
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+async def init_database():
+    """Initialize database connection asynchronously"""
     try:
-        loop.run_until_complete(db.connect())
+        await db.connect()
         logger.info("Database connection established")
     except Exception as e:
         logger.error(f"Failed to initialize database: {e}")
         raise
-    finally:
-        loop.close()
 
 def main() -> None:
+    # Create new event loop
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    
+    try:
+        # Initialize database
+        loop.run_until_complete(init_database())
+        
+        application = Application.builder().token(Config.TELEGRAM_TOKEN).build()
 
-    # Initialize database first
-    init_database()
+        # Create ConversationHandler
+        conv_handler = ConversationHandler(
+            entry_points=[CallbackQueryHandler(watchlist.add_to_watchlist, pattern="^add_watchlist_")],
+            states={
+                watchlist.WAITING_FOR_NOTE: [MessageHandler(filters.TEXT & ~filters.COMMAND, watchlist.save_note_and_add_to_watchlist)],
+            },
+            fallbacks=[CommandHandler("cancel", watchlist.cancel)],
+            per_message=False,
+            per_chat=True
+        )
 
-    application = Application.builder().token(Config.TELEGRAM_TOKEN).build()
+        # Add handlers
+        application.add_handler(conv_handler)
+        application.add_handler(CommandHandler("start", start.start))
+        application.add_handler(CommandHandler("info", info.info))
+        application.add_handler(CommandHandler("wl", watchlist.view_watchlist))
+        application.add_handler(CallbackQueryHandler(analyze.analyze_report_button, pattern="^analyzereport_"))
+        application.add_handler(CallbackQueryHandler(scrape.scrape_x_profile, pattern="^scrape_xprofile_"))
+        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, info.info))
 
-    # Create ConversationHandler
-    conv_handler = ConversationHandler(
-        entry_points=[CallbackQueryHandler(watchlist.add_to_watchlist, pattern="^add_watchlist_")],  # Changed pattern
-        states={
-            watchlist.WAITING_FOR_NOTE: [MessageHandler(filters.TEXT & ~filters.COMMAND, watchlist.save_note_and_add_to_watchlist)],
-        },
-        fallbacks=[CommandHandler("cancel", watchlist.cancel)],
-        per_message=False,
-        per_chat=True
-    )
+        # Set up post-init hook
+        application.post_init = post_init
 
-    # Add handlers
-    application.add_handler(conv_handler)
-    application.add_handler(CommandHandler("start", start.start))
-    application.add_handler(CommandHandler("info", info.info))
-    application.add_handler(CommandHandler("wl", watchlist.view_watchlist))
-    application.add_handler(CallbackQueryHandler(analyze.analyze_report_button, pattern="^analyzereport_"))
-    application.add_handler(CallbackQueryHandler(scrape.scrape_x_profile, pattern="^scrape_xprofile_"))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, info.info))
-
-    # Set up post-init hook where we connect to the database
-    application.post_init = post_init
-
-    # Start the bot
-    application.run_polling(poll_interval=1.0)
+        # Run the bot
+        loop.run_until_complete(application.initialize())
+        loop.run_until_complete(application.start())
+        loop.run_until_complete(application.run_polling())
+        loop.run_forever()
+        
+    except Exception as e:
+        logger.error(f"Error in main: {e}")
+        raise
+    finally:
+        loop.close()
 
 if __name__ == "__main__":
     main()

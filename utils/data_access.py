@@ -31,14 +31,15 @@ class DataAccess:
             raise Exception("Database URL not configured")
             
         try:
-            logger.info("Creating database pool...")
-            self.pool = await asyncpg.create_pool(
-                self._db_url,
-                min_size=1,
-                max_size=10,
-                command_timeout=60
-            )
-            logger.info("Database pool created successfully")
+            if not self.pool:  # Only create pool if it doesn't exist
+                logger.info("Creating database pool...")
+                self.pool = await asyncpg.create_pool(
+                    self._db_url,
+                    min_size=1,
+                    max_size=10,
+                    command_timeout=60
+                )
+                logger.info("Database pool created successfully")
         except Exception as e:
             logger.error(f"Failed to create database pool: {e}")
             raise
