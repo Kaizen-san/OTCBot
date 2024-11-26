@@ -5,7 +5,8 @@ from models.ticker_data import TickerData
 from utils.google_sheets import add_to_sheet, get_watchlist_from_sheet
 from datetime import datetime
 from utils.formatting import convert_timestamp, format_number
-from main import db
+from utils.data_access import DataAccess
+
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +19,8 @@ and retrieving watchlist data from Google Sheets.
 """
 
 WAITING_FOR_NOTE = 1
+
+db = DataAccess()
 
 async def view_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handler for viewing user's watchlist"""

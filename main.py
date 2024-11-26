@@ -25,13 +25,23 @@ db = DataAccess()
 async def post_init(application: Application) -> None:
     await start.setup_commands(application.bot)
 
-def main() -> None:
-
-    # Run database connection in the event loop
+def init_database():
+    """Initialize database connection synchronously"""
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    loop.run_until_complete(db.connect())
-    logger.info("Database connection established")
+    try:
+        loop.run_until_complete(db.connect())
+        logger.info("Database connection established")
+    except Exception as e:
+        logger.error(f"Failed to initialize database: {e}")
+        raise
+    finally:
+        loop.close()
+
+def main() -> None:
+
+    # Initialize database first
+    init_database()
 
     application = Application.builder().token(Config.TELEGRAM_TOKEN).build()
 
