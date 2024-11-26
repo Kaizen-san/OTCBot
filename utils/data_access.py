@@ -2,6 +2,7 @@ from typing import List, Tuple
 import asyncpg
 import logging
 from config import Config
+import asyncio
 
 """
 Database access layer - solely responsible for database communication.
